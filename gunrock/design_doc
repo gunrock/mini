@@ -1,0 +1,22 @@
+Frontier class:
+need both: per-edge/per-node data and graph data
+an array with type: v or e. length (done)
+
+operator:
+advance(v2v,v2e,e2v,e2e)
+filter(with or without deduplication)
+compute(launch lambda function on each elements in the frontier)
+
+Problem:
+per-edge/node data
+graph data (done)
+global data
+
+Enactor:
+define several lambda functions
+usually define two frontiers
+
+
+
+
+
