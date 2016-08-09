@@ -1,36 +1,13 @@
 #pragma once
-#include "types.hxx"
-#include <cstdarg>
+
+#include <map>
 #include <string>
 #include <sstream>
-#include <map>
+#include "moderngpu/memory.hxx"
 
-BEGIN_GUNROCK_NAMESPACE
+using namespace std;
 
-namespace detail {
-
-inline std::string stringprintf(const char* format, ...) {
-  va_list args;
-  va_start(args, format);
-  int len = vsnprintf(0, 0, format, args);
-  va_end(args);
-
-  // allocate space.
-  std::string text;
-  text.resize(len);
-
-  va_start(args, format);
-  vsnprintf(&text[0], len + 1, format, args);
-  va_end(args);
-
-  return text;
-}
-
-} // namespace detail
-
-/******************************************************************************
- * Command-line parsing functionality
- ******************************************************************************/
+namespace gunrock {
 
 /**
  * CommandLineArgs interface
@@ -175,4 +152,15 @@ void CommandLineArgs::GetCmdLineArguments(
     }
 }
 
-END_GUNROCK_NAMESPACE
+template<typename type_t>
+cudaError_t display_device_data(const type_t *data, std::size_t length) {
+    cudaError_t ret = cudaSuccess;
+    std::vector<type_t> dest(length);
+    if (ret = dtoh(dest, data, length)) return ret;
+    for (auto item = dest.begin(); item != dest.end(); ++item)
+        std::cout << *item << ' ';
+    std::cout << std::endl;
+    return ret;
+}
+
+}

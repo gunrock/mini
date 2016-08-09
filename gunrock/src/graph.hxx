@@ -5,12 +5,15 @@
 #include <algorithm>
 #include <cassert>
 #include <tuple>
+#include <iostream>
 
-#include "meta.hxx"
-#include "context.hxx"
-#include "memory.hxx"
+#include "moderngpu/meta.hxx"
+#include "moderngpu/context.hxx"
+#include "moderngpu/memory.hxx"
 
-BEGIN_GUNROCK_NAMESPACE
+using namespace mgpu;
+
+namespace gunrock {
 
 struct csr_t {
   std::size_t num_nodes;
@@ -194,4 +197,4 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
       new graph_t{num_vertices, num_edges, csr_ptr, csc_ptr, edgelist_ptr});
 }
 
-END_GUNROCK_NAMESPACE
+}

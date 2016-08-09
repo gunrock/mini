@@ -2,7 +2,7 @@
 
 #include "graph.hxx"
 
-BEGIN_GUNROCK_NAMESPACE
+namespace gunrock {
 
 enum frontier_type_t {
   edge_frontier = 0,
@@ -84,4 +84,4 @@ public:
   
 };
 
-END_GUNROCK_NAMESPACE
+}

@@ -2,7 +2,7 @@
 
 #include "problem.hxx"
 
-BEGIN_GUNROCK_NAMESPACE
+namespace gunrock {
 
 struct bfs_problem_t : problem_t {
   mem_t<int> d_labels;
@@ -23,4 +23,4 @@ struct bfs_problem_t : problem_t {
   }
 };
 
-END_GUNROCK_NAMESPACE
+}

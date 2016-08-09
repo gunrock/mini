@@ -1,6 +1,7 @@
 #include "graph.hxx"
 #include "frontier.hxx"
 #include "bfs/bfs_problem.hxx"
+#include "test_utils.hxx"
 
 using namespace gunrock;
 

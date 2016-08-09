@@ -1,0 +1,3 @@
+[submodule "external/moderngpu"]
+	path = external/moderngpu
+	url = https://github.com/moderngpu/moderngpu.git

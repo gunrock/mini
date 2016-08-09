@@ -2,7 +2,7 @@
 
 #include "graph.hxx"
 
-BEGIN_GUNROCK_NAMESPACE
+namespace gunrock {
 
 struct problem_t {
   std::shared_ptr<graph_device_t> gslice;
@@ -20,7 +20,7 @@ struct problem_t {
   }
 };
 
-END_GUNROCK_NAMESPACE
+}
 
 
 
