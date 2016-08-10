@@ -28,7 +28,7 @@ public:
   frontier_t& operator=(const frontier_t& rhs) = delete;
   frontier_t(const frontier_t& rhs) = delete;
 
-  frontier_t(context_t &context, size_t capacity, size_t scale, frontier_type_t type = node_frontier) :
+  frontier_t(context_t &context, size_t capacity, float scale, frontier_type_t type = node_frontier) :
       _size(0),
       _type(type)
     {
@@ -80,6 +80,7 @@ public:
   //TODO: append array to the end of current data
 
   size_t size() const { return _size; }
+  frontier_type_t type() const {return _type; }
   std::shared_ptr<mem_t<type_t> > data() const {return _data; }
   
 };
