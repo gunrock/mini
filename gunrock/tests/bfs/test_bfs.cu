@@ -36,7 +36,8 @@ int main(int argc, char** argv) {
 
     std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, 0, 1) );
     launch_kernel<int, int, bfs_problem_t, bfs_functor_t>(test_p, frontier, output_frontier, context);
-
+    printf("output frontier size:%ld\n", output_frontier->size());
+    display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);
     display_device_data(output_frontier.get()->data()->data(), output_frontier->size());
 
 }

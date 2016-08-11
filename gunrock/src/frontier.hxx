@@ -12,6 +12,7 @@ enum frontier_type_t {
 template<typename type_t>
 class frontier_t {
   size_t _size;
+  size_t _capacity;
   frontier_type_t _type;
 
   std::shared_ptr<mem_t<type_t> > _data;
@@ -23,17 +24,17 @@ public:
       _data->swap(rhs._data);
   }
 
-  frontier_t() : _size(0), _type(node_frontier), _data(std::make_shared<type_t>())
+  frontier_t() : _size(0), _capacity(1), _type(node_frontier), _data(std::make_shared<type_t>())
     { }
   frontier_t& operator=(const frontier_t& rhs) = delete;
   frontier_t(const frontier_t& rhs) = delete;
 
-  frontier_t(context_t &context, size_t capacity, float scale, frontier_type_t type = node_frontier) :
-      _size(0),
+  frontier_t(context_t &context, size_t capacity, size_t size, frontier_type_t type = node_frontier) :
+      _capacity(capacity),
+      _size(size),
       _type(type)
     {
-        int full_size = int(capacity * scale);
-        _data.reset(new mem_t<type_t>(full_size, context));
+        _data.reset(new mem_t<type_t>(capacity, context));
   }
 
   frontier_t(frontier_t&& rhs) : frontier_t() {
@@ -48,11 +49,11 @@ public:
 
   cudaError_t load(mem_t<type_t> &target) {
       int target_size = target.size();
-      int full_size = _data->size();
-      if (target_size > full_size) {
+      int capacity = _data->size();
+      if (target_size > capacity) {
         printf("Overflow during frontier loading. Capacity is %d,"
                 "size of the data to load is %d.\n",
-                full_size,
+                capacity,
                 target_size);
         exit(0);
       }
@@ -64,11 +65,11 @@ public:
 
   cudaError_t load(std::vector<type_t> target) {
     int target_size = target.size();
-    int full_size = _data->size();
-    if (target_size > full_size) {
+    int capacity = _data->size();
+    if (target_size > capacity) {
         printf("Overflow during frontier loading. Capacity is %d,"
                 "size of the data to load is %d.\n",
-                full_size,
+                capacity,
                 target_size);
         exit(0);
     }
@@ -79,6 +80,7 @@ public:
 
   //TODO: append array to the end of current data
 
+  size_t capacity() const { return _capacity; }
   size_t size() const { return _size; }
   frontier_type_t type() const {return _type; }
   std::shared_ptr<mem_t<type_t> > data() const {return _data; }
