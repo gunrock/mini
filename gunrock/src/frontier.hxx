@@ -29,7 +29,7 @@ public:
   frontier_t& operator=(const frontier_t& rhs) = delete;
   frontier_t(const frontier_t& rhs) = delete;
 
-  frontier_t(context_t &context, size_t capacity, size_t size, frontier_type_t type = node_frontier) :
+  frontier_t(context_t &context, size_t capacity, size_t size = 0, frontier_type_t type = node_frontier) :
       _capacity(capacity),
       _size(size),
       _type(type)

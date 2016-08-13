@@ -8,7 +8,7 @@ namespace bfs {
 struct bfs_problem_t : problem_t {
   mem_t<int> d_labels;
   std::vector<int> labels;
-  size_t     src;
+  int src;
 
   struct data_slice_t {
       int *d_labels;

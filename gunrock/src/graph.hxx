@@ -16,21 +16,21 @@ using namespace mgpu;
 namespace gunrock {
 
 struct csr_t {
-  std::size_t num_nodes;
-  std::size_t num_edges;
-  std::vector<std::size_t> offsets;
+  int num_nodes;
+  int num_edges;
+  std::vector<int> offsets;
   std::vector<int> indices;
   std::vector<float> edge_weights;
 };
 
 struct edgelist_t {
-  std::size_t num_edges;
+  int num_edges;
   std::vector<std::tuple<int, int, float>> edges;
 };
 
 struct graph_t {
-  std::size_t num_nodes;
-  std::size_t num_edges;
+  int num_nodes;
+  int num_edges;
 
   std::shared_ptr<csr_t> csr;
   std::shared_ptr<csr_t> csc;
@@ -38,14 +38,19 @@ struct graph_t {
 };
 
 struct graph_device_t {
-  std::size_t num_nodes;
-  std::size_t num_edges;
-  mem_t<size_t> d_row_offsets;
+  int num_nodes;
+  int num_edges;
+  mem_t<int> d_row_offsets;
   mem_t<int> d_col_indices;
   mem_t<float> d_col_values;
-  mem_t<size_t> d_col_offsets;
+  mem_t<int> d_col_offsets;
   mem_t<int> d_row_indices;
   mem_t<float> d_row_values;
+  
+  // update during each advance iteration
+  // to store the scaned row offsets of
+  // the current frontier
+  mem_t<int> d_scanned_row_offsets; 
 
   graph_device_t() :
       num_nodes(0),
@@ -63,6 +68,7 @@ void graph_to_device(std::shared_ptr<graph_device_t> d_graph, std::shared_ptr<gr
   d_graph->d_col_offsets = to_mem(graph->csc->offsets, context);
   d_graph->d_row_indices = to_mem(graph->csc->indices, context);
   d_graph->d_row_values = to_mem(graph->csc->edge_weights, context);
+  d_graph->d_scanned_row_offsets = mem_t<int>(graph->num_nodes, context);
 }
 
 void display_csr(std::shared_ptr<csr_t> csr) {
@@ -86,13 +92,13 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
   while (fgets(line, 100, f) && '%' == line[0])
     ;
 
-  id_t height, width, num_edges;
+  int height, width, num_edges;
   if (3 != sscanf(line, "%d %d %d", &height, &width, &num_edges)) {
     printf("Error reading %s\n", _name);
     exit(0);
   }
 
-  std::size_t num_vertices = height;
+  int num_vertices = height;
 
   int edge_size = _undir ? 2 * num_edges : num_edges;
   std::vector<std::tuple<int, int, float>> tuples(edge_size);
@@ -140,7 +146,7 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
        });
 
   // Build csc
-  std::vector<std::size_t> col_offsets(num_vertices + 1, num_edges);
+  std::vector<int> col_offsets(num_vertices + 1, num_edges);
   std::vector<int> row_indices(num_edges);
   std::vector<float> row_values(num_edges);
   int cur_vertex = -1;
@@ -173,7 +179,7 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
        });
 
   // Build csr
-  std::vector<std::size_t> row_offsets(num_vertices + 1, num_edges);
+  std::vector<int> row_offsets(num_vertices + 1, num_edges);
   std::vector<int> col_indices(num_edges);
   std::vector<float> col_values(num_edges);
   cur_vertex = -1;
