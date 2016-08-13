@@ -1,5 +1,5 @@
 # mini-gunrock
-This little project is the results of my study of moderngpu 2.0 and my attempt to create a minimalism-style graph processing library for the GPU. The reasons of creating this project are:
+This little project is the result of my study of moderngpu 2.0 and my attempt to create a minimalism-style graph processing library for the GPU. The reasons of creating this project are:
 - Gunrock main project is getting huge and it is difficult for new developers to get the core idea of our original purpose: giving graph processing library on the GPU both programmability and performance.
 - The integration with Multi-GPU and template-based design make it difficult to process micro-benchmarks for single workload mapping strategies and operations.
 - The Gunrock main project uses a mix of C++03, C++11, C99 and old-fashioned CUDA programming style, an alternative of refactoring such a large project is to build a small project with minimal components so that we can quickly try out new ideas.
