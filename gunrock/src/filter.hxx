@@ -74,7 +74,7 @@ void uniquify_kernel(std::shared_ptr<Problem> problem,
     int *output_data = output.get()->data()->data();
     compact.downsweep([=]__device__(int dest_idx, int source_idx) {
             output_data[dest_idx] = input_data[source_idx];
-            Functor::apply_filter(output_data[dest_idx], data, iteration);
+            //Functor::apply_filter(output_data[dest_idx], data, iteration);
         });
 }
 
