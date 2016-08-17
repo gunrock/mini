@@ -80,6 +80,17 @@ public:
 
   //TODO: append array to the end of current data
 
+  void resize(size_t size) {
+      if (size > _capacity) {
+        printf("Overflow during frontier resizing. Capacity is %d,"
+                "size of the data to resize is %d.\n",
+                (int)_capacity,
+                (int)size);
+        exit(0);
+      } else {
+          _size = size;
+      }
+  }
   size_t capacity() const { return _capacity; }
   size_t size() const { return _size; }
   frontier_type_t type() const {return _type; }

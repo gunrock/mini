@@ -35,7 +35,8 @@ int advance_kernel(std::shared_ptr<Problem> problem,
     if(!front) return 0;
 
     int *col_indices = problem.get()->gslice->d_col_indices.data();
-    output.reset( new frontier_t<int>(context, input.get()->capacity(), front, input.get()->type()) );
+    //output.reset( new frontier_t<int>(context, input.get()->capacity(), front, input.get()->type()) );
+    output->resize(front);
     int *output_data = output.get()->data()->data();
     typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
     auto neighbors_expand = [=]__device__(int idx, int seg, int rank) {

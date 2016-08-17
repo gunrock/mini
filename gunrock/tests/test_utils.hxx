@@ -3,6 +3,8 @@
 #include <map>
 #include <string>
 #include <sstream>
+#include <chrono>
+#include <ctime>
 #include "moderngpu/memory.hxx"
 
 using namespace std;
@@ -162,5 +164,30 @@ cudaError_t display_device_data(const type_t *data, std::size_t length) {
     std::cout << std::endl;
     return ret;
 }
+
+class test_timer_t {
+    std::chrono::time_point<std::chrono::system_clock> s, e;
+    bool counting;
+
+    public:
+    test_timer_t() : counting(false) {}
+   
+    void start() {
+        if (!counting) {
+            counting = true;
+            s = std::chrono::system_clock::now();
+        }
+    }
+
+    double end() {
+        if (counting) {
+            e = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed = e - s;
+            return elapsed.count();
+        } else {
+            return 0.0;
+        }
+    }
+};
 
 }

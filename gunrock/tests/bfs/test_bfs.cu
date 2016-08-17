@@ -31,16 +31,17 @@ int main(int argc, char** argv) {
 
     std::shared_ptr<bfs_problem_t> test_p(std::make_shared<bfs_problem_t>(d_graph, src, context));
 
-    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, 2000) );
+    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );
     std::vector<int> node_idx(1, src);
     input_frontier->load(node_idx);
-    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, 0, 1) );
+    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );
     std::vector< std::shared_ptr<frontier_t<int> > > buffers;
     buffers.push_back(input_frontier);
     buffers.push_back(output_frontier);
 
-
-    /*int frontier_length = 1;
+    test_timer_t timer;
+    timer.start();
+    int frontier_length = 1;
     int selector = 0;
     for (int iteration = 0; ; ++iteration) {
         frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t>(test_p, buffers[selector], buffers[selector^1], iteration, context);
@@ -49,16 +50,17 @@ int main(int argc, char** argv) {
         filter_kernel<bfs_problem_t, bfs_functor_t>(test_p, buffers[selector], buffers[selector^1], iteration, context);
         selector ^= 1;
     }
+    cout << "elapsed time: " << timer.end() << "s." << std::endl;
 
-    display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);*/
+    //display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);
 
-    std::vector<int> test_uniq(1000);
+    /*std::vector<int> test_uniq(10);
     std::generate(test_uniq.begin(), test_uniq.end(), []{return std::rand()%5;});
     input_frontier->load(test_uniq);
-    std::vector<unsigned char> mask(1000,0);
+    std::vector<unsigned char> mask(10,0);
     mem_t<unsigned char> visited_mask = to_mem(mask, context);
     uniquify_kernel<bfs_problem_t, bfs_functor_t>(test_p, visited_mask.data(), input_frontier, output_frontier, 0, context);
-    std::cout << output_frontier->size() << std::endl;
+    std::cout << output_frontier->size() << std::endl;*/
     //display_device_data(output_frontier.get()->data()->data(), output_frontier->size());
 }
 
