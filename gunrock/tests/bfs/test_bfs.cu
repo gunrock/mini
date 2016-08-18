@@ -23,6 +23,9 @@ int main(int argc, char** argv) {
     int src = 0;
     args.GetCmdLineArgument("src", src);
 
+    bool idempotence;
+    idempotence = args.CheckCmdLineFlag("idempotence");
+
     standard_context_t context;
     
     std::shared_ptr<graph_t> graph = load_graph(filename.c_str());
@@ -31,23 +34,34 @@ int main(int argc, char** argv) {
 
     std::shared_ptr<bfs_problem_t> test_p(std::make_shared<bfs_problem_t>(d_graph, src, context));
 
-    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );
+    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*5) );
     std::vector<int> node_idx(1, src);
     input_frontier->load(node_idx);
-    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );
+    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*5) );
     std::vector< std::shared_ptr<frontier_t<int> > > buffers;
     buffers.push_back(input_frontier);
     buffers.push_back(output_frontier);
+    mem_t<unsigned char> visited_mask = idempotence ? mgpu::fill<unsigned char>(0, d_graph->num_nodes, context) : mem_t<unsigned char>(1,context);
 
     test_timer_t timer;
     timer.start();
     int frontier_length = 1;
     int selector = 0;
     for (int iteration = 0; ; ++iteration) {
-        frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t>(test_p, buffers[selector], buffers[selector^1], iteration, context);
+        if (idempotence)
+            frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t, true>(test_p, buffers[selector], buffers[selector^1], iteration, context);
+        else
+            frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t, false>(test_p, buffers[selector], buffers[selector^1], iteration, context);
+        //std::cout << frontier_length << std::endl;
+        //display_device_data(buffers[selector^1].get()->data()->data(), frontier_length);
+        //display_device_data(visited_mask.data(), d_graph->num_nodes);
+        //display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);
         if (!frontier_length) break;
         selector ^= 1;
-        filter_kernel<bfs_problem_t, bfs_functor_t>(test_p, buffers[selector], buffers[selector^1], iteration, context);
+        if (idempotence)
+            uniquify_kernel<bfs_problem_t, bfs_functor_t>(test_p, visited_mask.data(), buffers[selector], buffers[selector^1], iteration, context);
+        else
+            filter_kernel<bfs_problem_t, bfs_functor_t>(test_p, buffers[selector], buffers[selector^1], iteration, context);
         selector ^= 1;
     }
     cout << "elapsed time: " << timer.end() << "s." << std::endl;

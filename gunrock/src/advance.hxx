@@ -8,7 +8,7 @@ namespace advance {
 
     //first scan
     //then lbs (given the option to idempotence or not)
-template<typename Problem, typename Functor>
+template<typename Problem, typename Functor, bool idempotence>
 int advance_kernel(std::shared_ptr<Problem> problem,
               std::shared_ptr<frontier_t<int> > &input,
               std::shared_ptr<frontier_t<int> > &output,
@@ -43,7 +43,7 @@ int advance_kernel(std::shared_ptr<Problem> problem,
         int v = input_data[seg];
         int start_idx = row_offsets[v];
         int neighbor = col_indices[start_idx+rank];
-        output_data[idx] = Functor::cond_advance(v, neighbor, data, iteration) ? neighbor : -1;
+        output_data[idx] = idempotence ? neighbor : (Functor::cond_advance(v, neighbor, data, iteration) ? neighbor : -1);
     };
     transform_lbs(neighbors_expand, front, scanned_row_offsets, (int)input.get()->size(), context);
 
