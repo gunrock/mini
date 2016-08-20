@@ -22,7 +22,6 @@ void filter_kernel(std::shared_ptr<Problem> problem,
                 int item = input_data[idx];
                 return Functor::cond_filter(item, data, iteration);
             });
-    //output.reset( new frontier_t<int>(context, input.get()->capacity(), stream_count, input.get()->type()) );
     output->resize(stream_count);
     int *output_data = output.get()->data()->data();
     compact.downsweep([=]__device__(int dest_idx, int source_idx) {
@@ -112,7 +111,6 @@ void uniquify_kernel(std::shared_ptr<Problem> problem,
                 UniquifyFunctor::history_cull(idx, input_data, history_hash);
                 return ProblemFunctor::cond_uniq(input_data[idx], data, iteration);
             });
-    //output.reset( new frontier_t<int>(context, input.get()->capacity(), stream_count, input.get()->type()) );
     output->resize(stream_count);
     int *output_data = output.get()->data()->data();
     compact.downsweep([=]__device__(int dest_idx, int source_idx) {
