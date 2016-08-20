@@ -34,10 +34,10 @@ int main(int argc, char** argv) {
 
     std::shared_ptr<bfs_problem_t> test_p(std::make_shared<bfs_problem_t>(d_graph, src, context));
 
-    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*5) );
+    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*10) );
     std::vector<int> node_idx(1, src);
     input_frontier->load(node_idx);
-    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*5) );
+    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*10) );
     std::vector< std::shared_ptr<frontier_t<int> > > buffers;
     buffers.push_back(input_frontier);
     buffers.push_back(output_frontier);
@@ -68,10 +68,11 @@ int main(int argc, char** argv) {
 
     //display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);
 
-    /*std::vector<int> test_uniq(10);
-    std::generate(test_uniq.begin(), test_uniq.end(), []{return std::rand()%5;});
+    /*std::vector<int> test_uniq(4000);
+    int num_nodes = d_graph->num_nodes;
+    std::generate(test_uniq.begin(), test_uniq.end(), [=]{return std::rand()%num_nodes;});
     input_frontier->load(test_uniq);
-    std::vector<unsigned char> mask(10,0);
+    std::vector<unsigned char> mask(4000,0);
     mem_t<unsigned char> visited_mask = to_mem(mask, context);
     uniquify_kernel<bfs_problem_t, bfs_functor_t>(test_p, visited_mask.data(), input_frontier, output_frontier, 0, context);
     std::cout << output_frontier->size() << std::endl;*/
