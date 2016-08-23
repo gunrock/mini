@@ -50,7 +50,12 @@ struct graph_device_t {
   // update during each advance iteration
   // to store the scaned row offsets of
   // the current frontier
-  mem_t<int> d_scanned_row_offsets; 
+  mem_t<int> d_scanned_row_offsets;
+  // row lengths for each node in frontier
+  // coarse fine row offsets array is used for dynamic grouping advance
+  // int2.x:coarse rank, int2.y:fine rank
+  mem_t<int> d_row_lengths;
+  mem_t<int2> d_scanned_coarse_fine_row_offsets;
 
   graph_device_t() :
       num_nodes(0),
@@ -69,6 +74,9 @@ void graph_to_device(std::shared_ptr<graph_device_t> d_graph, std::shared_ptr<gr
   d_graph->d_row_indices = to_mem(graph->csc->indices, context);
   d_graph->d_row_values = to_mem(graph->csc->edge_weights, context);
   d_graph->d_scanned_row_offsets = mem_t<int>(graph->num_nodes, context);
+  // TODO: should really allocate when strategy is dynamic grouping.
+  d_graph->d_row_lengths = mem_t<int>(graph->num_nodes, context);
+  d_graph->d_scanned_coarse_fine_row_offsets = mem_t<int2>(graph->num_nodes, context);
 }
 
 void display_csr(std::shared_ptr<csr_t> csr) {

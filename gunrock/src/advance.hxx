@@ -1,6 +1,14 @@
+#include <moderngpu/transform.hxx>
 #include <moderngpu/kernel_scan.hxx>
 #include <moderngpu/kernel_load_balance.hxx>
 #include "frontier.hxx"
+
+template<>
+struct plus_t<int2> : public std::binary_function<int2, int2, int2> {
+	__forceinline__ __host__ __device__ int2 operator()(int2 a, int2 b) const {
+    return make_int2(a.x+b.x, a.y+b.y);
+  }
+};
 
 namespace gunrock {
 namespace oprtr {
@@ -105,6 +113,49 @@ int advance_reverse_kernel(std::shared_ptr<Problem> problem,
     transform_lbs(neighbors_expand, front, scanned_row_offsets, (int)unvisited.get()->size(), context);
 
     return front;
+}
+
+template<typename Problem, typename Functor, bool idempotence>
+int advance_twc_kernel(std::shared_ptr<Problem> problem,
+              std::shared_ptr<frontier_t<int> > &input,
+              std::shared_ptr<frontier_t<int> > &output,
+              int warp_gather_threshold,
+              int cta_gather_threshold,
+              int iteration,
+              standard_context_t &context)
+{
+    int *input_data = input.get()->data()->data();
+    int *row_lengths = problem.get()->gslice->d_row_lengths.data();
+    int *row_offsets = problem.get()->gslice->d_row_offsets.data();
+    int2 *coarse_fine_ranks = problem.get()->gslice->d_scanned_coarse_fine_row_offsets.data();
+    mem_t<int2> counts(1, context);
+
+    auto segment_sizes = [=]__device__(int idx) {
+        int2 count;
+        int v = input_data[idx];
+        int begin = row_offsets[v];
+        int end = row_offsets[v+1];
+        int len = end - begin;
+        row_lengths[idx] = len;
+        count.x = (len < warp_gather_threshold) ? 0 : len;
+        count.y = (len < warp_gather_threshold) ? len : 0; 
+        return count;
+    };
+    transform_scan<int>(segment_sizes, (int)input.get()->size(), coarse_fine_ranks, plus_t<int2>(),
+            counts.data(), context);
+
+    int coarse_count = from_mem(counts)[0].x;
+    int fine_count = from_mem(counts)[0].y;
+    if(!coarse_count && !fine_count) return 0;
+
+    // start cta/warp/thread expand
+    auto f = [=]__device__(int idx) {
+        __shared__ int warp_comm[mgpu::warp_size][4];
+        //pass now
+    };
+    transform(f, (int)input.get()->size(), context);
+
+    return coarse_count + fine_count;
 }
 
 } // end advance
