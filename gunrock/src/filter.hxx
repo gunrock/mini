@@ -30,6 +30,39 @@ void filter_kernel(std::shared_ptr<Problem> problem,
         });
 }
 
+void gen_bitmap_kernel(std::shared_ptr<frontier_t<int> > &input,
+                       std::shared_ptr<frontier_t<int> > &bitmap,
+                       standard_context_t &context)
+{
+    int *input_data = input.get()->data()->data();
+    int *bitmap_data = bitmap.get()->data()->data();
+    auto f = [=]__device__(int idx) {
+        int item = input_data[idx];
+        bitmap_data[item] = 1;
+    };
+    transform(f, (int)input.get()->size(), context);
+}
+
+template<typename Problem>
+void gen_unvisited_kernel(std::shared_ptr<Problem> problem,
+                       std::shared_ptr<frontier_t<int> > &input,
+                       std::shared_ptr<frontier_t<int> > &unvisited,
+                       standard_context_t &context)
+{
+    auto compact = transform_compact(input.get()->size(), context);
+    int *input_data = input.get()->data()->data();
+    typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
+    int stream_count = compact.upsweep([=]__device__(int idx) {
+                int item = input_data[idx];
+                return data->d_labels[item] == -1;
+                });
+    unvisited->resize(stream_count);
+    int *unvisited_data = unvisited.get()->data()->data();
+    compact.downsweep([=]__device__(int dest_idx, int source_idx) {
+            unvisited_data[dest_idx] = input_data[source_idx];
+        });
+}
+
 struct UniquifyFunctor {
     static __device__ __forceinline__ void bitmask_cull(int idx, int *input_data, unsigned char *d_visited_mask) {
         int item = input_data[idx];

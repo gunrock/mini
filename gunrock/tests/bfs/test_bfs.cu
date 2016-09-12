@@ -43,10 +43,19 @@ int main(int argc, char** argv) {
     buffers.push_back(output_frontier);
     mem_t<unsigned char> visited_mask = idempotence ? mgpu::fill<unsigned char>(0, d_graph->num_nodes, context) : mem_t<unsigned char>(1,context);
 
+
+    std::shared_ptr<frontier_t<int> > unvisited(std::make_shared<frontier_t<int> >(context, d_graph->num_nodes) );
+    mem_t<int> bitmap_array = mgpu::fill<int>(0, d_graph->num_nodes, context);
+    std::shared_ptr<frontier_t<int> > bitmap(std::make_shared<frontier_t<int> >(context, d_graph->num_nodes) );
+    bitmap->load(bitmap_array);
+
     test_timer_t timer;
     timer.start();
     int frontier_length = 1;
     int selector = 0;
+
+    //gen_bitmap_kernel(buffers[selector], bitmap, context);
+    //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes);
     for (int iteration = 0; ; ++iteration) {
         if (idempotence)
             frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t, true>(test_p, buffers[selector], buffers[selector^1], iteration, context);
@@ -56,12 +65,16 @@ int main(int argc, char** argv) {
         //display_device_data(buffers[selector^1].get()->data()->data(), frontier_length);
         //display_device_data(visited_mask.data(), d_graph->num_nodes);
         //display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);
-        if (!frontier_length) break;
+        //gen_unvisited_kernel(test_p, buffers[selector^1], unvisited, context);
+        //gen_bitmap_kernel(buffers[selector^1], bitmap, context);
+        //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes);
         selector ^= 1;
         if (idempotence)
             uniquify_kernel<bfs_problem_t, bfs_functor_t>(test_p, visited_mask.data(), buffers[selector], buffers[selector^1], iteration, context);
         else
             filter_kernel<bfs_problem_t, bfs_functor_t>(test_p, buffers[selector], buffers[selector^1], iteration, context);
+        //std::cout << buffers[selector^1]->size() << std::endl;
+        if (!buffers[selector^1]->size()) break;
         selector ^= 1;
     }
     cout << "elapsed time: " << timer.end() << "s." << std::endl;
