@@ -16,47 +16,90 @@ using namespace gunrock::oprtr::filter;
 using namespace gunrock::oprtr::advance;
 
 int main(int argc, char** argv) {
+
+    // read in graph file
     std::string filename;
     CommandLineArgs args(argc, argv);
     args.GetCmdLineArgument("file", filename);
 
+    // read in source node from cmd line
     int src = 0;
     args.GetCmdLineArgument("src", src);
 
-    bool idempotence;
-    idempotence = args.CheckCmdLineFlag("idempotence");
-
+    // CUDA context is used for all mgpu transforms
     standard_context_t context;
-    
+   
+    // Load graph data to device
     std::shared_ptr<graph_t> graph = load_graph(filename.c_str());
     std::shared_ptr<graph_device_t> d_graph(std::make_shared<graph_device_t>());
     graph_to_device(d_graph, graph, context);
 
-    std::shared_ptr<bfs_problem_t> test_p(std::make_shared<bfs_problem_t>(d_graph, src, context));
+    // Initializes bfs problem object
+    std::shared_ptr<bfs_problem_t> bfs_problem(std::make_shared<bfs_problem_t>(d_graph, src, context));
 
-    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*10) );
-    std::vector<int> node_idx(1, src);
-    input_frontier->load(node_idx);
-    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges*10) );
+    // Initializes ping-pong buffers
+    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );         
+    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );
     std::vector< std::shared_ptr<frontier_t<int> > > buffers;
     buffers.push_back(input_frontier);
     buffers.push_back(output_frontier);
-    mem_t<unsigned char> visited_mask = idempotence ? mgpu::fill<unsigned char>(0, d_graph->num_nodes, context) : mem_t<unsigned char>(1,context);
 
-
-    std::shared_ptr<frontier_t<int> > unvisited(std::make_shared<frontier_t<int> >(context, d_graph->num_nodes) );
+    // Generate unvisited array as input frontier
+    std::shared_ptr<frontier_t<int> > init_indices(std::make_shared<frontier_t<int> >(context, d_graph->num_nodes));
+    auto gen_idx = [=]__device__(int index) {
+        return index;
+    };
+    mem_t<int> indices = mgpu::fill_function<int>(gen_idx, d_graph->num_nodes, context);
+    init_indices->load(indices);
+    gen_unvisited_kernel<bfs_problem_t, bfs_functor_t>(bfs_problem, init_indices, buffers[0], 0, context);
     mem_t<int> bitmap_array = mgpu::fill<int>(0, d_graph->num_nodes, context);
     std::shared_ptr<frontier_t<int> > bitmap(std::make_shared<frontier_t<int> >(context, d_graph->num_nodes) );
     bitmap->load(bitmap_array);
+    
+    // Generate bitmap array as auxiliary frontier
+    std::vector<int> node_idx(1, src);
+    output_frontier->load(node_idx);
+    sparse_to_dense_kernel<bfs_problem_t, bfs_functor_t>(bfs_problem, buffers[1], bitmap, 0, context);
 
     test_timer_t timer;
     timer.start();
-    int frontier_length = 1;
+    int frontier_length = d_graph->num_nodes - 1;
     int selector = 0;
 
-    //gen_bitmap_kernel(buffers[selector], bitmap, context);
-    //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes);
+    
+    //display_device_data(buffers[0].get()->data()->data(), buffers[0]->size());
+    //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes); 
+
     for (int iteration = 0; ; ++iteration) {
+        advance_backward_kernel<bfs_problem_t, bfs_functor_t>(
+                bfs_problem,
+                buffers[selector],
+                bitmap,
+                buffers[selector^1],
+                iteration,
+                context);
+
+        selector ^= 1;
+
+        //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes); 
+
+        filter_kernel<bfs_problem_t, bfs_functor_t>(
+                bfs_problem,
+                buffers[selector],
+                buffers[selector^1],
+                iteration,
+                context);
+
+        selector ^= 1;
+
+        if (!buffers[selector]->size()) break;
+    }
+
+    cout << "elapsed time: " << timer.end() << "s." << std::endl;
+
+    display_device_data(bfs_problem.get()->d_labels.data(), bfs_problem.get()->gslice->num_nodes);
+
+    /*for (int iteration = 0; ; ++iteration) {
         if (idempotence)
             frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t, true>(test_p, buffers[selector], buffers[selector^1], iteration, context);
         else
@@ -79,7 +122,7 @@ int main(int argc, char** argv) {
     }
     cout << "elapsed time: " << timer.end() << "s." << std::endl;
 
-    //display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);
+    display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);*/
 
     /*std::vector<int> test_uniq(4000);
     int num_nodes = d_graph->num_nodes;

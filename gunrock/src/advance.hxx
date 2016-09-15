@@ -18,7 +18,7 @@ namespace advance {
     //first scan
     //then lbs (given the option to idempotence or not)
 template<typename Problem, typename Functor, bool idempotence>
-int advance_kernel(std::shared_ptr<Problem> problem,
+int advance_forward_kernel(std::shared_ptr<Problem> problem,
               std::shared_ptr<frontier_t<int> > &input,
               std::shared_ptr<frontier_t<int> > &output,
               int iteration,
@@ -52,19 +52,59 @@ int advance_kernel(std::shared_ptr<Problem> problem,
         int v = input_data[seg];
         int start_idx = row_offsets[v];
         int neighbor = col_indices[start_idx+rank];
-        bool apply = Functor::cond_advance(v, neighbor, data, iteration);
-        output_data[idx] = idempotence ? neighbor : (apply ? neighbor : -1);
-        if (apply) Functor::apply_advance(v, neighbor, data, iteration);
+        bool cond = Functor::cond_advance(v, neighbor, data, iteration);
+        bool apply = Functor::apply_advance(v, neighbor, data, iteration);
+        output_data[idx] = idempotence ? neighbor : ((cond && apply) ? neighbor : -1);
     };
     transform_lbs(neighbors_expand, front, scanned_row_offsets, (int)input.get()->size(), context);
 
     return front;
 }
 
-template<typename Problem, typename Functor, bool early_exit>
-int advance_reverse_kernel(std::shared_ptr<Problem> problem,
+template<typename Problem, typename Functor>
+void sparse_to_dense_kernel(std::shared_ptr<Problem> problem,
+                       std::shared_ptr<frontier_t<int> > &sparse, //compact representation
+                       std::shared_ptr<frontier_t<int> > &dense, //bitmap representation
+                       int iteration,
+                       standard_context_t &context)
+{
+    int *input_data = sparse.get()->data()->data();
+    int *output_data = dense.get()->data()->data();
+    typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
+    auto f = [=]__device__(int idx) {
+        int item = input_data[idx];
+        output_data[item] = Functor::cond_sparse_to_dense(item, data, iteration) ? 1 : 0;
+    };
+    transform(f, (int)sparse.get()->size(), context);
+}
+
+template<typename Problem, typename Functor>
+void gen_unvisited_kernel(std::shared_ptr<Problem> problem,
+                       std::shared_ptr<frontier_t<int> > &indices,
+                       std::shared_ptr<frontier_t<int> > &unvisited,
+                       int iteration,
+                       standard_context_t &context)
+{
+    auto compact = transform_compact(indices.get()->size(), context);
+    int *input_data = indices.get()->data()->data();
+    typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
+    int stream_count = compact.upsweep([=]__device__(int idx) {
+                int item = input_data[idx];
+                return Functor::cond_gen_unvisited(item, data, iteration);
+                });
+    unvisited->resize(stream_count);
+    std::cout << stream_count << std::endl;
+    int *unvisited_data = unvisited.get()->data()->data();
+    compact.downsweep([=]__device__(int dest_idx, int source_idx) {
+            unvisited_data[dest_idx] = input_data[source_idx];
+        });
+}
+
+template<typename Problem, typename Functor>
+int advance_backward_kernel(std::shared_ptr<Problem> problem,
               std::shared_ptr<frontier_t<int> > &unvisited,
               std::shared_ptr<frontier_t<int> > &bitmap,
+              std::shared_ptr<frontier_t<int> > &output,
               int iteration,
               standard_context_t &context)
 {
@@ -87,28 +127,26 @@ int advance_reverse_kernel(std::shared_ptr<Problem> problem,
     int front = from_mem(count)[0];
     if(!front) return 0;
 
+    output->resize(unvisited.get()->size());
     int *row_indices = problem.get()->gslice->d_row_indices.data();
     // update the bitmaps of visited nodes, compact the unvisited nodes
     typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
+    int *output_data = output.get()->data()->data();
+    int *bitmap_data = bitmap.get()->data()->data();
     auto neighbors_expand = [=]__device__(int idx, int seg, int rank) {
         int v = unvisited_data[seg];
-        if (early_exit && v == -1) {
-            // visited and early exit,
-            return;
-        }
+        output_data[seg] = v;
         int start_idx = col_offsets[v];
         int neighbor = row_indices[start_idx+rank];
         // if the neighbor item in bitmap is set,
         // set unvisited_data[seg] in bitmap too.
         // if early_exit, mark unvisited_data[seg] as -1
-        int *bitmap_data = bitmap.get()->data()->data();
-        if (bitmap_data[neighbor]) {
-            bitmap_data[unvisited_data[seg]] = 1;
-            if (early_exit)
-                unvisited_data[seg] = -1;
+        if (bitmap_data[neighbor] && Functor::apply_advance(neighbor, v, data, iteration)) {
+            bitmap_data[v] = 1;
+            output_data[seg] = -1;
         }
-        if (Functor::cond_advance(v, neighbor, data, iteration))
-            Functor::apply_advance(v, neighbor, data, iteration);
+        if (!Functor::cond_advance(neighbor, v, data, iteration))
+            return;
     };
 
     transform_lbs(neighbors_expand, front, scanned_row_offsets, (int)unvisited.get()->size(), context);
@@ -167,23 +205,24 @@ struct AdvanceTWCFunctor {
 
             int neighbor_id;
             bool apply;
+            bool cond;
             while (coop_offset + threadIdx.x < coop_oob) {
                 // Gather
                 neighbor_id = col_indices[coop_offset+threadIdx.x];
-                apply = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                cond = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                apply = Functor::apply_advance(pred, neighbor_id, data, iteration);
                 // Scatter neighbor
-                output_data[coop_rank] = idempotence ? neighbor_id : (apply ? neighbor_id : -1);
-                if (apply) Functor::apply_advance(pred, neighbor_id, data, iteration);
+                output_data[coop_rank] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
                 coop_offset += nt;
                 coop_rank += nt;
             }
             if (coop_offset + idx < coop_oob) {
                 // Gather
                 neighbor_id = col_indices[coop_offset+threadIdx.x];
-                apply = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                cond = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                apply =  Functor::apply_advance(pred, neighbor_id, data, iteration);
                 // Scatter neighbor
-                output_data[coop_rank] = idempotence ? neighbor_id : (apply ? neighbor_id : -1);
-                if (apply) Functor::apply_advance(pred, neighbor_id, data, iteration);
+                output_data[coop_rank] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
             }
         }
     }
@@ -226,23 +265,23 @@ struct AdvanceTWCFunctor {
 
             int neighbor_id;
             bool apply;
+            bool cond;
             while (coop_offset + mgpu::warp_size < coop_oob) {
                 // Gather
                 neighbor_id = col_indices[coop_offset+lane_id];
-                apply = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                cond = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                apply = Functor::apply_advance(pred, neighbor_id, data, iteration);
                 // Scatter neighbor
-                output_data[coop_rank] = idempotence ? neighbor_id : (apply ? neighbor_id : -1);
-                if (apply) Functor::apply_advance(pred, neighbor_id, data, iteration);
+                output_data[coop_rank] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
                 coop_offset += mgpu::warp_size;
                 coop_rank += mgpu::warp_size;
             }
             if (coop_offset + lane_id < coop_oob) {
                 // Gather
                 neighbor_id = col_indices[coop_offset+lane_id];
-                apply = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                cond = Functor::cond_advance(pred, neighbor_id, data, iteration);
                 // Scatter neighbor
-                output_data[coop_rank] = idempotence ? neighbor_id : (apply ? neighbor_id : -1);
-                if (apply) Functor::apply_advance(pred, neighbor_id, data, iteration);
+                output_data[coop_rank] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
             }
         }
     }
@@ -362,16 +401,17 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
             __syncthreads();
             int scratch_remainder = (smem_gather_elements < fine_count - progress) ? smem_gather_elements : fine_count - progress;
             bool apply;
+            bool cond;
             for (int scratch_offset = threadIdx.x;
                     scratch_offset < scratch_remainder;
                     scratch_offset += launch_t::sm_ptx::nt)
             {
                 int neighbor_id = col_indices[gather_offsets[scratch_offset]];
                 int pred = gather_preds[scratch_offset];
-                apply = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                cond = Functor::cond_advance(pred, neighbor_id, data, iteration);
+                apply = Functor::apply_advance(pred, neighbor_id, data, iteration);
                 // Scatter neighbor 
-                output_data[coarse_count + progress + scratch_offset] = idempotence ? neighbor_id : (apply ? neighbor_id : -1);
-                if (apply) Functor::apply_advance(pred, neighbor_id, data, iteration);
+                output_data[coarse_count + progress + scratch_offset] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
             }
             progress += smem_gather_elements;
             __syncthreads();
