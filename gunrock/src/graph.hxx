@@ -21,11 +21,7 @@ struct csr_t {
   std::vector<int> offsets;
   std::vector<int> indices;
   std::vector<float> edge_weights;
-};
-
-struct edgelist_t {
-  int num_edges;
-  std::vector<std::tuple<int, int, float>> edges;
+  std::vector<int> sources;
 };
 
 struct graph_t {
@@ -34,7 +30,6 @@ struct graph_t {
 
   std::shared_ptr<csr_t> csr;
   std::shared_ptr<csr_t> csc;
-  std::shared_ptr<edgelist_t> edgelist;
 };
 
 struct graph_device_t {
@@ -46,6 +41,8 @@ struct graph_device_t {
   mem_t<int> d_col_offsets;
   mem_t<int> d_row_indices;
   mem_t<float> d_row_values;
+  mem_t<int> d_csr_srcs;
+  mem_t<int> d_csc_srcs;
   
   // update during each advance iteration
   // to store the scaned row offsets of
@@ -73,6 +70,8 @@ void graph_to_device(std::shared_ptr<graph_device_t> d_graph, std::shared_ptr<gr
   d_graph->d_col_offsets = to_mem(graph->csc->offsets, context);
   d_graph->d_row_indices = to_mem(graph->csc->indices, context);
   d_graph->d_row_values = to_mem(graph->csc->edge_weights, context);
+  d_graph->d_csr_srcs = to_mem(graph->csr->sources, context);
+  d_graph->d_csc_srcs = to_mem(graph->csc->sources, context);
   d_graph->d_scanned_row_offsets = mem_t<int>(graph->num_nodes, context);
   // TODO: should really allocate when strategy is dynamic grouping.
   d_graph->d_row_lengths = mem_t<int>(graph->num_nodes, context);
@@ -156,12 +155,14 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
   // Build csc
   std::vector<int> col_offsets(num_vertices + 1, num_edges);
   std::vector<int> row_indices(num_edges);
+  std::vector<int> csc_sources(num_edges);
   std::vector<float> row_values(num_edges);
   int cur_vertex = -1;
   for (int edge = 0; edge < num_edges; ++edge) {
     while (cur_vertex < std::get<0>(tuples[edge])) {
       col_offsets[++cur_vertex] = edge;
     }
+    csc_sources[edge] = cur_vertex;
     row_indices[edge] = std::get<1>(tuples[edge]);
     row_values[edge] = std::get<1>(tuples[edge]);
   }
@@ -189,26 +190,27 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
   // Build csr
   std::vector<int> row_offsets(num_vertices + 1, num_edges);
   std::vector<int> col_indices(num_edges);
+  std::vector<int> csr_sources(num_edges);
   std::vector<float> col_values(num_edges);
   cur_vertex = -1;
   for (int edge = 0; edge < num_edges; ++edge) {
     while (cur_vertex < std::get<1>(tuples[edge])) {
       row_offsets[++cur_vertex] = edge;
     }
+    csr_sources[edge] = cur_vertex;
     col_indices[edge] = std::get<0>(tuples[edge]);
     col_values[edge] = std::get<0>(tuples[edge]);
   }
 
-  // create unique_ptr of csr, csc, and edgelist
+  // create unique_ptr of csr, and csc
   std::shared_ptr<csr_t> csr_ptr(
-      new csr_t{num_vertices, num_edges, row_offsets, col_indices, col_values});
+      new csr_t{num_vertices, num_edges, row_offsets, col_indices, col_values, csr_sources});
   std::shared_ptr<csr_t> csc_ptr(
-      new csr_t{num_vertices, num_edges, col_offsets, row_indices, row_values});
-  std::shared_ptr<edgelist_t> edgelist_ptr(new edgelist_t{num_edges, tuples});
+      new csr_t{num_vertices, num_edges, col_offsets, row_indices, row_values, csc_sources});
 
   // return graph_t
   return std::shared_ptr<graph_t>(
-      new graph_t{num_vertices, num_edges, csr_ptr, csc_ptr, edgelist_ptr});
+      new graph_t{num_vertices, num_edges, csr_ptr, csc_ptr});
 }
 
 }

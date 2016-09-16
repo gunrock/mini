@@ -6,6 +6,7 @@
 
 #include "filter.hxx"
 #include "advance.hxx"
+#include "neighborhood.hxx"
 
 #include <algorithm>
 #include <cstdlib>
