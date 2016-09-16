@@ -9,13 +9,11 @@ mini-gunrock's core components are graph traversal operators that based on moder
 - **graph_device_t** contains CSR, CSC, and edge list presentations, it is the main data structure for storing our graph topology and node/edge values. It also contains auxiliary data, such as *d_scanned_row_offsets*, to be used by traversal operators.
 - **frontier_t** is the input and output for all traversal operators. It maps to Gunrock's frontier_queue using 1DArray.
 - **problem_t** is the base class for different graph problems. It contains a shared_ptr to graph_device_t called *gslice*. Each graph primitive will derive this class and define their own problem data structure which contains per-node/per-edge data.
-- **filter and advance** map to Gunrock's filter and advance operators. Underneath, they both use moderngpu 2.0's transforms (transform_compact for filter, and transform_scan + transform_lbs for advance). Currently I have implemented the baseline implementation which equals to Gunrock's LB strategy, the idempotence capability LB strategy, and flexible uniquification filter. The direction optimal advance has also been implemented as in Ligra. I will gradually add more features as I explore more workload mapping strategies.
-
+- **filter and advance** map to Gunrock's filter and advance operators. Underneath, they both use moderngpu 2.0's transforms (transform_compact for filter, and transform_scan + transform_lbs for advance). Currently I have implemented the baseline implementation which equals to Gunrock's LB strategy, the idempotence capability LB strategy, the dynamic group workload mapping strategy, and flexible uniquification filter. The direction optimal advance has also been implemented as in Ligra. I will gradually add more features as I explore more workload mapping strategies.
+- **neighborhood reduce** is a new operator enabled thanks to moderngpu 2.0's transform_segreduce operator. Different from a spmv where user always multiplies a vector with the whole matrix (in graph form, visits all the nodes neighbors), this operator takes dynamic generated input frontier, visits only these nodes' neighbors, and reduce over each neighborhood according to user-specific reduce operator by two functors: *get_value_to_reduce* and *write_reduce_value*.
 `mini/gunrock/tests/bfs/test_bfs.cu` shows the power of mini-gunrock. After loading graph and setting up frontier and problem, the actual algorithm part only contains 8 lines of code. It is a truly data-centric framework and basically achieved our original idea of "the flow of frontier between multiple operators".
 
 # TODOS (with no perticular orders)
-- Add dynamic group workload mapping strategy from Duane Merrill's PPoPP'12 paper.
-- Add merge-based advance-reduce operator based on Duane Merrill's SpMV idea.
 - Add a pure compute operator with no filter (maps to Gunrock's bypass_filter).
 - Add launch_box and restrict settings to further improve the performance.
 - Add the batch-intersection operator.
