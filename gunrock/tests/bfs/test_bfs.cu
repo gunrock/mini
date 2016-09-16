@@ -15,6 +15,7 @@ using namespace gunrock;
 using namespace gunrock::bfs;
 using namespace gunrock::oprtr::filter;
 using namespace gunrock::oprtr::advance;
+using namespace gunrock::oprtr::neighborhood;
 
 int main(int argc, char** argv) {
 
@@ -100,40 +101,13 @@ int main(int argc, char** argv) {
 
     display_device_data(bfs_problem.get()->d_labels.data(), bfs_problem.get()->gslice->num_nodes);
 
-    /*for (int iteration = 0; ; ++iteration) {
-        if (idempotence)
-            frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t, true>(test_p, buffers[selector], buffers[selector^1], iteration, context);
-        else
-            frontier_length = advance_kernel<bfs_problem_t, bfs_functor_t, false>(test_p, buffers[selector], buffers[selector^1], iteration, context);
-        //std::cout << frontier_length << std::endl;
-        //display_device_data(buffers[selector^1].get()->data()->data(), frontier_length);
-        //display_device_data(visited_mask.data(), d_graph->num_nodes);
-        //display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);
-        //gen_unvisited_kernel(test_p, buffers[selector^1], unvisited, context);
-        //gen_bitmap_kernel(buffers[selector^1], bitmap, context);
-        //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes);
-        selector ^= 1;
-        if (idempotence)
-            uniquify_kernel<bfs_problem_t, bfs_functor_t>(test_p, visited_mask.data(), buffers[selector], buffers[selector^1], iteration, context);
-        else
-            filter_kernel<bfs_problem_t, bfs_functor_t>(test_p, buffers[selector], buffers[selector^1], iteration, context);
-        //std::cout << buffers[selector^1]->size() << std::endl;
-        if (!buffers[selector^1]->size()) break;
-        selector ^= 1;
-    }
-    cout << "elapsed time: " << timer.end() << "s." << std::endl;
-
-    display_device_data(test_p.get()->d_labels.data(), test_p.get()->gslice->num_nodes);*/
-
-    /*std::vector<int> test_uniq(4000);
-    int num_nodes = d_graph->num_nodes;
-    std::generate(test_uniq.begin(), test_uniq.end(), [=]{return std::rand()%num_nodes;});
-    input_frontier->load(test_uniq);
-    std::vector<unsigned char> mask(4000,0);
-    mem_t<unsigned char> visited_mask = to_mem(mask, context);
-    uniquify_kernel<bfs_problem_t, bfs_functor_t>(test_p, visited_mask.data(), input_frontier, output_frontier, 0, context);
-    std::cout << output_frontier->size() << std::endl;*/
-    //display_device_data(output_frontier.get()->data()->data(), output_frontier->size());
+    // Test neighborhood_reduce operator
+    std::vector<int> test_nr = {1,2,3};
+    input_frontier->load(test_nr);
+    mem_t<int> r = mgpu::fill_function<int>(gen_idx, d_graph->num_edges, context);
+    int *reduced = r.data();
+    neighborhood_kernel<bfs_problem_t, bfs_functor_t, int, mgpu::plus_t<int> >
+    (bfs_problem, input_frontier, output_frontier, reduced, -1, 1000, context);
 }
 
 

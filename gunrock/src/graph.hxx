@@ -43,6 +43,8 @@ struct graph_device_t {
   mem_t<float> d_row_values;
   mem_t<int> d_csr_srcs;
   mem_t<int> d_csc_srcs;
+  mem_t<int> d_sources;
+  mem_t<int> d_ranks;
   
   // update during each advance iteration
   // to store the scaned row offsets of
@@ -74,7 +76,9 @@ void graph_to_device(std::shared_ptr<graph_device_t> d_graph, std::shared_ptr<gr
   d_graph->d_csc_srcs = to_mem(graph->csc->sources, context);
   d_graph->d_scanned_row_offsets = mem_t<int>(graph->num_nodes, context);
   // TODO: should really allocate when strategy is dynamic grouping.
-  d_graph->d_row_lengths = mem_t<int>(graph->num_nodes, context);
+  d_graph->d_row_lengths = mem_t<int>(graph->num_nodes+1, context);
+  d_graph->d_sources = mem_t<int>(graph->num_edges, context);
+  d_graph->d_ranks = mem_t<int>(graph->num_edges, context);
   d_graph->d_scanned_coarse_fine_row_offsets = mem_t<int2>(graph->num_nodes, context);
 }
 

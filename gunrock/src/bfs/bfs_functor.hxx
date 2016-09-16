@@ -39,6 +39,16 @@ static __device__ __forceinline__ bool cond_gen_unvisited(int idx, bfs_problem_t
     return data->d_labels[idx] == -1;
 }
 
+static __device__ __forceinline__ int get_value_to_reduce(int idx, bfs_problem_t::data_slice_t *data, int iteration) {
+    //printf("idx: %d, %d\n", idx, iteration);
+    return iteration;
+}
+
+static __device__ __forceinline__ void write_reduced_value(int item, int val, bfs_problem_t::data_slice_t *data, int iteration) {
+    // Write reduced value val to problem data
+    //printf("item:%d, reduced val:%d\n", item, val);
+}
+
 };
 
 }// end of bfs
