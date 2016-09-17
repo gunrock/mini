@@ -9,7 +9,7 @@ namespace filter {
 // (remove all the failed condition items)
 //
 template<typename Problem, typename Functor>
-void filter_kernel(std::shared_ptr<Problem> problem,
+int filter_kernel(std::shared_ptr<Problem> problem,
               std::shared_ptr<frontier_t<int> > &input,
               std::shared_ptr<frontier_t<int> > &output,
               int iteration,
@@ -27,6 +27,7 @@ void filter_kernel(std::shared_ptr<Problem> problem,
     compact.downsweep([=]__device__(int dest_idx, int source_idx) {
             output_data[dest_idx] = input_data[source_idx];
         });
+    return stream_count;
 }
 
 struct UniquifyFunctor {

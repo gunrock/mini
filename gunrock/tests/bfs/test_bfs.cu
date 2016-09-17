@@ -1,21 +1,11 @@
-#include "graph.hxx"
-#include "frontier.hxx"
-#include "bfs/bfs_problem.hxx"
-#include "bfs/bfs_functor.hxx"
+#include "bfs/bfs_enactor.hxx"
 #include "test_utils.hxx"
-
-#include "filter.hxx"
-#include "advance.hxx"
-#include "neighborhood.hxx"
 
 #include <algorithm>
 #include <cstdlib>
 
 using namespace gunrock;
 using namespace gunrock::bfs;
-using namespace gunrock::oprtr::filter;
-using namespace gunrock::oprtr::advance;
-using namespace gunrock::oprtr::neighborhood;
 
 int main(int argc, char** argv) {
 
@@ -39,75 +29,15 @@ int main(int argc, char** argv) {
     // Initializes bfs problem object
     std::shared_ptr<bfs_problem_t> bfs_problem(std::make_shared<bfs_problem_t>(d_graph, src, context));
 
-    // Initializes ping-pong buffers
-    std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );         
-    std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, d_graph->num_edges) );
-    std::vector< std::shared_ptr<frontier_t<int> > > buffers;
-    buffers.push_back(input_frontier);
-    buffers.push_back(output_frontier);
-
-    // Generate unvisited array as input frontier
-    std::shared_ptr<frontier_t<int> > init_indices(std::make_shared<frontier_t<int> >(context, d_graph->num_nodes));
-    auto gen_idx = [=]__device__(int index) {
-        return index;
-    };
-    mem_t<int> indices = mgpu::fill_function<int>(gen_idx, d_graph->num_nodes, context);
-    init_indices->load(indices);
-    gen_unvisited_kernel<bfs_problem_t, bfs_functor_t>(bfs_problem, init_indices, buffers[0], 0, context);
-    mem_t<int> bitmap_array = mgpu::fill<int>(0, d_graph->num_nodes, context);
-    std::shared_ptr<frontier_t<int> > bitmap(std::make_shared<frontier_t<int> >(context, d_graph->num_nodes) );
-    bitmap->load(bitmap_array);
-    
-    // Generate bitmap array as auxiliary frontier
-    std::vector<int> node_idx(1, src);
-    output_frontier->load(node_idx);
-    sparse_to_dense_kernel<bfs_problem_t, bfs_functor_t>(bfs_problem, buffers[1], bitmap, 0, context);
+    std::shared_ptr<bfs_enactor_t> bfs_enactor(std::make_shared<bfs_enactor_t>(context, d_graph->num_nodes, d_graph->num_edges));
 
     test_timer_t timer;
     timer.start();
-    int frontier_length = d_graph->num_nodes - 1;
-    int selector = 0;
-
-    
-    //display_device_data(buffers[0].get()->data()->data(), buffers[0]->size());
-    //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes); 
-
-    for (int iteration = 0; ; ++iteration) {
-        advance_backward_kernel<bfs_problem_t, bfs_functor_t>(
-                bfs_problem,
-                buffers[selector],
-                bitmap,
-                buffers[selector^1],
-                iteration,
-                context);
-
-        selector ^= 1;
-
-        //display_device_data(bitmap.get()->data()->data(), d_graph->num_nodes); 
-
-        filter_kernel<bfs_problem_t, bfs_functor_t>(
-                bfs_problem,
-                buffers[selector],
-                buffers[selector^1],
-                iteration,
-                context);
-
-        selector ^= 1;
-
-        if (!buffers[selector]->size()) break;
-    }
-
+    bfs_enactor->enact(bfs_problem, context);
     cout << "elapsed time: " << timer.end() << "s." << std::endl;
 
-    display_device_data(bfs_problem.get()->d_labels.data(), bfs_problem.get()->gslice->num_nodes);
-
-    // Test neighborhood_reduce operator
-    std::vector<int> test_nr = {1,2,3};
-    input_frontier->load(test_nr);
-    mem_t<int> r = mgpu::fill_function<int>(gen_idx, d_graph->num_edges, context);
-    int *reduced = r.data();
-    neighborhood_kernel<bfs_problem_t, bfs_functor_t, int, mgpu::plus_t<int> >
-    (bfs_problem, input_frontier, output_frontier, reduced, -1, 1000, context);
+    bfs_problem->extract();
+    //display_device_data(bfs_problem.get()->d_labels.data(), bfs_problem.get()->gslice->num_nodes);
 }
 
 

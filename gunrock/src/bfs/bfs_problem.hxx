@@ -42,6 +42,10 @@ struct bfs_problem_t : problem_t {
           d_preds = to_mem(preds, context);
           data_slice[0].init(d_labels, d_preds);
           d_data_slice = to_mem(data_slice, context);
+      }
+
+  void extract() {
+      mgpu::dtoh(labels, d_labels.data(), gslice->num_nodes); 
   }
 };
 
