@@ -43,7 +43,7 @@ struct bfs_enactor_t : enactor_t {
         int selector = 0;
 
         for (int iteration = 0; ; ++iteration) {
-            frontier_length = advance_forward_kernel<bfs_problem_t, bfs_functor_t, false>
+            frontier_length = advance_forward_kernel<bfs_problem_t, bfs_functor_t, false, true>
                 (bfs_problem,
                  buffers[selector],
                  buffers[selector^1],
