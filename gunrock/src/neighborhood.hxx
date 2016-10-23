@@ -9,7 +9,7 @@ namespace gunrock {
 namespace oprtr {
 namespace neighborhood {
 
-template<typename Problem, typename Functor, typename Value, typename reduce_op>
+template<typename Problem, typename Functor, typename Value, typename reduce_op, bool has_output>
 int neighborhood_kernel(std::shared_ptr<Problem> problem,
               std::shared_ptr<frontier_t<int> > &input,
               std::shared_ptr<frontier_t<int> > &output,
@@ -47,8 +47,8 @@ int neighborhood_kernel(std::shared_ptr<Problem> problem,
                         non_zeros, scanned_row_offsets, (int)input.get()->size(), mgpu::make_tuple(input_data), context);
 
     int *col_indices = problem.get()->gslice->d_col_indices.data();
-    output->resize(non_zeros);
-    int *output_data = output.get()->data()->data();
+    if (has_output) output->resize(non_zeros);
+    int *output_data = (has_output) ? output.get()->data()->data() : nullptr;
     typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
     
     auto neighborhood_reduce = [=]__device__(int idx) {
@@ -56,21 +56,22 @@ int neighborhood_kernel(std::shared_ptr<Problem> problem,
         int start = ldg(row_offsets+v);
         int rank = ldg(ranks+idx);
         int neighbor = ldg(col_indices+start+rank);
-        bool cond = Functor::cond_advance(v, neighbor, data, iteration);
-        bool apply = Functor::apply_advance(v, neighbor, data, iteration);
-        output_data[idx] = (cond && apply) ? neighbor : -1;
+        bool cond = Functor::cond_advance(v, neighbor, start+rank, idx, data, iteration);
+        bool apply = Functor::apply_advance(v, neighbor, start+rank, idx, data, iteration);
+        if (has_output) output_data[idx] = (cond && apply) ? neighbor : -1;
         return Functor::get_value_to_reduce(neighbor, data, iteration);
     };
 
     transform_segreduce(neighborhood_reduce, non_zeros, scanned_row_offsets, (int)input.get()->size(), reduced, reduce_op(), identity, context);
 
     // scatter reduced value to problem
-    auto f = [=]__device__(int idx) {
+    // skip for now, since reduced array has been sent in
+    /*auto f = [=]__device__(int idx) {
         int item = input_data[idx];
         Value reduced_val = reduced[idx];
         Functor::write_reduced_value(item, reduced_val, data, iteration);
     };
-    transform(f, (int)input.get()->size(), context);
+    transform(f, (int)input.get()->size(), context);*/
 
     return non_zeros;
 }
