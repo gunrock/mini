@@ -9,6 +9,7 @@
 #include "neighborhood.hxx"
 
 #include "enactor.hxx"
+#include "test_utils.hxx"
 
 using namespace mgpu;
 
@@ -53,7 +54,7 @@ struct coloring_enactor_t : enactor_t {
         int *reduced_max = coloring_problem->d_reduced_max.data();
         int *reduced_min = coloring_problem->d_reduced_min.data();
         while (frontier_length > 0 && iteration < coloring_problem.get()->max_iter) {
-            neighborhood_kernel<coloring_problem_t, coloring_functor_t, int, mgpu::maximum_t<int>, false >
+            neighborhood_kernel<coloring_problem_t, reduce_max_t, int, mgpu::maximum_t<int>, false >
                 (coloring_problem,
                  full_frontier,
                  full_frontier,
@@ -62,7 +63,7 @@ struct coloring_enactor_t : enactor_t {
                  iteration,
                  context);
 
-            neighborhood_kernel<coloring_problem_t, coloring_functor_t, int, mgpu::minimum_t<int>, false >
+            neighborhood_kernel<coloring_problem_t, reduce_min_t, int, mgpu::minimum_t<int>, false >
                 (coloring_problem,
                  full_frontier,
                  full_frontier,
@@ -80,6 +81,13 @@ struct coloring_enactor_t : enactor_t {
 
             selector ^= 1;
             ++iteration;
+
+            //display_device_data(coloring_problem.get()->d_hashs.data(), coloring_problem.get()->gslice->num_nodes);
+            //display_device_data(coloring_problem.get()->d_reduced_max.data(), coloring_problem.get()->gslice->num_nodes);
+            //display_device_data(coloring_problem.get()->d_reduced_min.data(), coloring_problem.get()->gslice->num_nodes);
+            //display_device_data(coloring_problem.get()->d_colors.data(), coloring_problem.get()->gslice->num_nodes);
+
+            coloring_problem->reset_hashs(context);
         } 
     }
    

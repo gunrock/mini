@@ -56,8 +56,8 @@ int neighborhood_kernel(std::shared_ptr<Problem> problem,
         int start = ldg(row_offsets+v);
         int rank = ldg(ranks+idx);
         int neighbor = ldg(col_indices+start+rank);
-        bool cond = Functor::cond_advance(v, neighbor, start+rank, idx, data, iteration);
-        bool apply = Functor::apply_advance(v, neighbor, start+rank, idx, data, iteration);
+        bool cond = Functor::cond_advance(v, neighbor, start+rank, rank, idx, data, iteration);
+        bool apply = Functor::apply_advance(v, neighbor, start+rank, rank, idx, data, iteration);
         if (has_output) output_data[idx] = (cond && apply) ? neighbor : -1;
         return Functor::get_value_to_reduce(neighbor, data, iteration);
     };
