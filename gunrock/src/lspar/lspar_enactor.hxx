@@ -31,27 +31,37 @@ struct lspar_enactor_t : enactor_t {
     lspar_enactor_t& operator=(const lspar_enactor_t& rhs) = delete;
 
     void init_frontier(std::shared_ptr<lspar_problem_t> lspar_problem) {
-        std::vector<int> node_idx(lspar_problem.get()->gslice->num_nodes);
+        std::vector<int> edge_idx(lspar_problem.get()->gslice->num_edges);
         int count = 0;
-        generate(node_idx.begin(), node_idx.end(), [&](){ return count++; });
-        buffers[0]->load(node_idx);
+        generate(edge_idx.begin(), edge_idx.end(), [&](){ return count++; });
+        buffers[0]->load(edge_idx);
+        buffers[1]->load(edge_idx);
     }
+
     
     //Enact
-    void enact(std::shared_ptr<lspar_problem_t> lspar_problem, standard_context_t &context) {
+    int enact(std::shared_ptr<lspar_problem_t> lspar_problem, standard_context_t &context) {
         init_frontier(lspar_problem);
 
         int frontier_length = lspar_problem.get()->gslice->num_nodes;
 
         typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
-        int k = lspar_problem->k;
-        float e = lspar_problem->e;
 
-        //one compute step to compute k hash with (a,b,P) values
         //one neighborhood reduction to compute minwise hash
-        //one advance to compute per-edge sim values
+        int selector = 0;
+        int iteration = 0;
+        int *minwise_hashs = lspar_problem.get()->d_minwise_hashs.data();
+        neighborhood_kernel<lspar_problem_t, minhash_functor_t, int, mgpu::minimum_t<int>, false >
+            (lspar_problem,
+             buffers[0],
+             buffers[1],
+             minwise_hashs,
+             std::numeric_limits<int>::max(),
+             iteration,
+             context);
 
-        frontier_length = advance_forward_kernel<lspar_problem_t, lspar_functor_t, false, false>
+        //one advance to compute per-edge sim values
+        advance_forward_kernel<lspar_problem_t, sim_functor_t, false, false>
             (lspar_problem,
              buffers[0],
              buffers[1],
@@ -59,12 +69,40 @@ struct lspar_enactor_t : enactor_t {
              context);
 
         //now we get all the sims stored, time to do segsort
-        
-        //now assign eids according to the d^e order. this is a filter. but
-        //what to output? maybe a tuple of (source node, dst node) would be
-        //nice.
+        sim_edge_t *sims = lspar_problem.get()->d_sims.data();
+        sim_edge_t *sortd_sims = lspar_problem.get()->d_sorted_sims.data();
+        int *offsets = lspar_problem.get()->gslice->d_sorted_sims.data();
+        int num_edges = lspar_problem.get()->gslice->num_edges;
+        int num_nodes = lspar_problem.get()->gslice->num_nodes;
+        segmented_sort_indices(sims, sorted_sims, num_edges,offsets,num_nodes,less_sim(), context);
+       
+        //advance to tag selected edges
+        //output could be a tuple (sid,did)
+        advance_forward_kernel<lspar_problem_t, select_functor_t, false, true>
+            (lspar_problem,
+             buffers[0],
+             buffers[1],
+             iteration,
+             context);
+
+        //directly load a transform_compact 
+        auto compact = transform_compact(num_edges, context);
+        sim_edge_t *input_data = buffers[1].get()->data()->data();
+        typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
+        frontier_length = compact.upsweep([=]__device__(int idx) {
+                int item = input_data[idx];
+                return item != -1;
+                });
+        output->resize(stream_count);
+        sim_edge_t *sims = lspar_problem.get()->d_sims.data();
+        sim_edge_t *sortd_sims = lspar_problem.get()->d_sorted_sims.data();
+        compact.downsweep([=]__device__(int dest_idx, int source_idx) {
+                sim[dest_idx] = sorted_sims[source_idx];
+                });
+
+        return frontier_length;
     }
-   
+
 };
 
 } //lspar
