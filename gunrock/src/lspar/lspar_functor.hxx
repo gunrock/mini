@@ -9,11 +9,11 @@ namespace lspar {
 
 struct minhash_functor_t {
 
-static __device__ __forceinline__ bool cond_advance(int src, int dst, int edge_id, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
+static __device__ __forceinline__ bool cond_advance(int src, int dst, int edge_id, int rank, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
     return true;
 }
 
-static __device__ __forceinline__ bool apply_advance(int src, int dst, int edge_id, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
+static __device__ __forceinline__ bool apply_advance(int src, int dst, int edge_id, int rank, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
     return true;
 }
 
@@ -25,14 +25,14 @@ static __device__ __forceinline__ int get_value_to_reduce(int idx, lspar_problem
 
 struct sim_functor_t {
 
-static __device__ __forceinline__ bool cond_advance(int src, int dst, int edge_id, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
+static __device__ __forceinline__ bool cond_advance(int src, int dst, int edge_id, int rank, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
     bool flag = (data->d_minwise_hashs[src] == data->d_minwise_hashs[src]);
     data->d_sims[output_idx].sim = flag ? 1 : 0;
     data->d_sims[output_idx].eid = output_idx;
     return flag;
 }
 
-static __device__ __forceinline__ bool apply_advance(int src, int dst, int edge_id, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
+static __device__ __forceinline__ bool apply_advance(int src, int dst, int edge_id, int rank, int output_idx, lspar_problem_t::data_slice_t *data, int iteration) {
     return true;
 }
 

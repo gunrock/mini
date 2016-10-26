@@ -9,18 +9,7 @@ struct lspar_problem_t : problem_t {
     struct sim_edge_t {
         int eid;
         float sim;
-        sim_edge_t() {
-            eid = -1;
-            sim = 0.0f;
-        }
-    };
-
-    struct less_sim
-    {
-        inline bool operator() (const sim_edge_t& a, const sim_edge_t& b)
-        {
-            return (a.sim < b.sim);
-        }
+        sim_edge_t() = default;
     };
 
   mem_t<sim_edge_t> d_sims;
@@ -39,7 +28,7 @@ struct lspar_problem_t : problem_t {
       int *d_hashs;
       int *d_minwise_hashs;
 
-      void init(mem_t<float> &_sims, mem_t<sim_edge_t> &_sorted_sims, mem_t<int> &_eids, mem_t<int> &_thresholds, mem_t<int> &_hashs, mem_t<int> & _minwise_hashs) {
+      void init(mem_t<sim_edge_t> &_sims, mem_t<sim_edge_t> &_sorted_sims, mem_t<int> &_thresholds, mem_t<int> &_hashs, mem_t<int> & _minwise_hashs) {
         d_sims = _sims.data();
         d_sorted_sims = _sorted_sims.data();
         d_thresholds = _thresholds.data();
@@ -92,9 +81,8 @@ struct lspar_problem_t : problem_t {
       problem_t(rhs),
       data_slice( std::vector<data_slice_t>(1) ) {
           thresholds = std::vector<int>(rhs->num_nodes, 0);
-          hashs = std::vector<int>(rhs->num_nodes, 0);
+          d_hashs = fill<int>(0, rhs->num_nodes, context);
           d_sims = fill<sim_edge_t>(sim_edge_t(), rhs->num_edges, context);
-          d_eids = to_mem(eids, context);
           d_thresholds = to_mem(thresholds, context);
           GetDegrees(d_thresholds, context);
           //compute threshold using transform
@@ -105,14 +93,16 @@ struct lspar_problem_t : problem_t {
           }
           //store prime in d_params[0], store i\in(1..k) a_i in d_params[1..k]
           params[0] = prime;
-          std::generate(params.begin()+1, params.begin()+k+1, (std::rand%(prime-1))+1);
+          params[1] = std::rand()%(prime-1)+1;
+          params[2] = std::rand()%prime;
+          //std::generate(params.begin()+1, params.begin()+k+1, (std::rand()%(prime-1))+1);
           //b_i in d_params[k+1..2k]
-          std::generate(params.begin()+k+1, params.end(), std::rand%prime);
+          //std::generate(params.begin()+k+1, params.end(), std::rand()%prime);
           d_params = to_mem(params, context);
           ComputeHashs(d_params, d_hashs, context);
           d_minwise_hashs = fill(0, rhs->num_nodes, context);
           d_sorted_sims = fill<sim_edge_t>(sim_edge_t(), rhs->num_edges, context);
-          data_slice[0].init(d_sims, d_sorted_sims, d_eids, d_thresholds, d_params, d_hashs, d_minwise_hashs);
+          data_slice[0].init(d_sims, d_sorted_sims, d_thresholds, d_hashs, d_minwise_hashs);
           d_data_slice = to_mem(data_slice, context);
       } 
 
