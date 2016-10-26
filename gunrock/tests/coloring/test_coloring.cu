@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     standard_context_t context;
    
     // Load graph data to device
-    std::shared_ptr<graph_t> graph = load_graph(filename.c_str());
+    std::shared_ptr<graph_t> graph = load_graph(filename.c_str(), true);
     std::shared_ptr<graph_device_t> d_graph(std::make_shared<graph_device_t>());
     graph_to_device(d_graph, graph, context);
 

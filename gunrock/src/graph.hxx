@@ -114,7 +114,7 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
 
   int edge_size = _undir ? 2 * num_edges : num_edges;
   std::vector<std::tuple<int, int, float>> tuples(edge_size);
-  for (int edge = 0; edge < edge_size; ++edge) {
+  for (int edge = 0; edge < num_edges; ++edge) {
     std::tuple<int, int, float> tuple;
     int num_item;
     if (!fgets(line, 100, f) ||
@@ -137,21 +137,21 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
     num_edges *= 2;
   }
 
-  sort(tuples.begin(), tuples.begin(),
+  sort(tuples.begin(), tuples.end(),
        [](const std::tuple<int, int, float> &a,
           const std::tuple<int, int, float> &b) -> bool {
-         int first = std::get<1>(a);
-         int second = std::get<1>(b);
-         if (first > second) {
+         int first = std::get<0>(a);
+         int second = std::get<0>(b);
+         if (first < second) {
            return true;
-         } else if (first < second) {
+         } else if (first > second) {
            return false;
          }
-         first = std::get<0>(a);
-         second = std::get<0>(b);
-         if (first > second) {
+         first = std::get<1>(a);
+         second = std::get<1>(b);
+         if (first < second) {
            return true;
-         } else if (first < second) {
+         } else if (first > second) {
            return false;
          }
          return true;
@@ -172,21 +172,21 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
     row_values[edge] = std::get<2>(tuples[edge]);
   }
 
-  sort(tuples.begin(), tuples.begin(),
+  sort(tuples.begin(), tuples.end(),
        [](const std::tuple<int, int, float> &a,
           const std::tuple<int, int, float> &b) -> bool {
-         int first = std::get<0>(a);
-         int second = std::get<0>(b);
-         if (first > second) {
+         int first = std::get<1>(a);
+         int second = std::get<1>(b);
+         if (first < second) {
            return true;
-         } else if (first < second) {
+         } else if (first > second) {
            return false;
          }
-         first = std::get<1>(a);
-         second = std::get<1>(b);
-         if (first > second) {
+         first = std::get<0>(a);
+         second = std::get<0>(b);
+         if (first < second) {
            return true;
-         } else if (first < second) {
+         } else if (first > second) {
            return false;
          }
          return true;
@@ -205,6 +205,7 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
     csr_sources[edge] = cur_vertex;
     col_indices[edge] = std::get<0>(tuples[edge]);
     col_values[edge] = std::get<2>(tuples[edge]);
+    printf("%d, %d\n", std::get<0>(tuples[edge]), std::get<1>(tuples[edge]));
   }
 
   // create unique_ptr of csr, and csc
