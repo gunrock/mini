@@ -205,7 +205,6 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
     csr_sources[edge] = cur_vertex;
     col_indices[edge] = std::get<0>(tuples[edge]);
     col_values[edge] = std::get<2>(tuples[edge]);
-    printf("%d, %d\n", std::get<0>(tuples[edge]), std::get<1>(tuples[edge]));
   }
 
   // create unique_ptr of csr, and csc

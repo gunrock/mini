@@ -1,1 +1,1 @@
-bin/test_coloring__x86_64 --file=test.mtx --seed=31
+bin/test_lspar__x86_64 --file=test.mtx

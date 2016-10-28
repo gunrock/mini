@@ -43,8 +43,6 @@ int advance_forward_kernel(std::shared_ptr<Problem> problem,
     int front = from_mem(count)[0];
     if(!front) return 0;
 
-    if(!has_output) front = 0;
-
     int *col_indices = problem.get()->gslice->d_col_indices.data();
     if (has_output) output->resize(front);
     int *output_data = has_output? output.get()->data()->data() : nullptr;
@@ -59,6 +57,8 @@ int advance_forward_kernel(std::shared_ptr<Problem> problem,
             output_data[idx] = idempotence ? neighbor : ((cond && apply) ? neighbor : -1);
     };
     transform_lbs(neighbors_expand, front, scanned_row_offsets, (int)input.get()->size(), context);
+
+    if(!has_output) front = 0;
 
     return front;
 }

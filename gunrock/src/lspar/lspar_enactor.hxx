@@ -35,9 +35,12 @@ struct lspar_enactor_t : enactor_t {
 
     void init_frontier(std::shared_ptr<lspar_problem_t> lspar_problem) {
         std::vector<int> edge_idx(lspar_problem.get()->gslice->num_edges);
+        std::vector<int> node_idx(lspar_problem.get()->gslice->num_nodes);
         int count = 0;
         generate(edge_idx.begin(), edge_idx.end(), [&](){ return count++; });
-        buffers[0]->load(edge_idx);
+        count = 0;
+        generate(node_idx.begin(), node_idx.end(), [&](){ return count++; });
+        buffers[0]->load(node_idx);
         buffers[1]->load(edge_idx);
     }
 
@@ -77,7 +80,7 @@ struct lspar_enactor_t : enactor_t {
         int num_edges = lspar_problem.get()->gslice->num_edges;
         int num_nodes = lspar_problem.get()->gslice->num_nodes;
         auto compare = []MGPU_DEVICE(sim_edge_t left, sim_edge_t right) {
-                return left.sim < right.sim;
+                return left.sim > right.sim;
         };
         segmented_sort(sims,num_edges,offsets,num_nodes,compare, context);
        

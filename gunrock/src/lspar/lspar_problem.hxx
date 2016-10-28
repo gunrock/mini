@@ -92,9 +92,9 @@ struct lspar_problem_t : problem_t {
               exit(1);
           }
           //store prime in d_params[0], store i\in(1..k) a_i in d_params[1..k]
-          params[0] = prime;
-          params[1] = std::rand()%(prime-1)+1;
-          params[2] = std::rand()%prime;
+          params.push_back(prime);
+          params.push_back(std::rand()%(prime-1)+1);
+          params.push_back(std::rand()%prime);
           //std::generate(params.begin()+1, params.begin()+k+1, (std::rand()%(prime-1))+1);
           //b_i in d_params[k+1..2k]
           //std::generate(params.begin()+k+1, params.end(), std::rand()%prime);
