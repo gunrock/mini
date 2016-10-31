@@ -36,8 +36,15 @@ int main(int argc, char** argv) {
     bfs_enactor->enact(bfs_problem, context);
     cout << "elapsed time: " << timer.end() << "s." << std::endl;
 
+    std::vector<int> validation_labels = std::vector<int>(d_graph->num_nodes, -1);
     bfs_problem->extract();
+    bfs_problem->cpu(validation_labels, graph->csr->offsets, graph->csr->indices);
     //display_device_data(bfs_problem.get()->d_labels.data(), bfs_problem.get()->gslice->num_nodes);
+
+    if (!validate(bfs_problem.get()->labels, validation_labels))
+        cout << "Validation Error." << endl;
+    else
+        cout << "Correct." << endl;
 }
 
 

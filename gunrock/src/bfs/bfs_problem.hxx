@@ -1,6 +1,7 @@
 #pragma once
 
 #include "problem.hxx"
+#include <queue>
 
 namespace gunrock {
 namespace bfs {
@@ -46,6 +47,28 @@ struct bfs_problem_t : problem_t {
 
   void extract() {
       mgpu::dtoh(labels, d_labels.data(), gslice->num_nodes); 
+  }
+
+  void cpu(std::vector<int> &validation_labels,
+                  std::vector<int> &row_offsets,
+                  std::vector<int> &col_indices) {
+      // CPU BFS for validation
+
+      // initialize input frontier
+      std::queue<int> f;
+      f.push(src);
+      validation_labels[src] = 0;
+      while (!f.empty()) {
+          int source = f.front();
+          f.pop();
+          for (int idx = row_offsets[source]; idx < row_offsets[source+1]; ++idx) {
+             int n = col_indices[idx];
+             if (validation_labels[n] < 0 || validation_labels[source]+1 < validation_labels[n]) {
+                validation_labels[n] = validation_labels[source]+1;
+                f.push(n);
+             }
+          }
+      }
   }
 };
 

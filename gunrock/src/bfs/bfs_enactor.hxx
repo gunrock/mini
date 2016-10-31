@@ -50,6 +50,7 @@ struct bfs_enactor_t : enactor_t {
                  iteration,
                  context);
             selector ^= 1;
+            if (!frontier_length) break;
             frontier_length = filter_kernel<bfs_problem_t, bfs_functor_t>
                 (bfs_problem,
                  buffers[selector],
