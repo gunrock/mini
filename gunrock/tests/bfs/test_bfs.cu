@@ -24,7 +24,11 @@ int main(int argc, char** argv) {
     // Load graph data to device
     std::shared_ptr<graph_t> graph = load_graph(filename.c_str());
     std::shared_ptr<graph_device_t> d_graph(std::make_shared<graph_device_t>());
-    graph_to_device(d_graph, graph, context);
+    graph_to_device(d_graph, graph, context); 
+
+    //float alpha = d_graph->num_nodes; // set default to prevent push-pull switch to happen
+    float alpha = 1.0f/d_graph->num_nodes; // set default to prevent push-pull switch to happen
+    args.GetCmdLineArgument("alpha", alpha);
 
     // Initializes bfs problem object
     std::shared_ptr<bfs_problem_t> bfs_problem(std::make_shared<bfs_problem_t>(d_graph, src, context));
@@ -33,7 +37,8 @@ int main(int argc, char** argv) {
 
     test_timer_t timer;
     timer.start();
-    bfs_enactor->enact(bfs_problem, context);
+    //bfs_enactor->enact_baseline(bfs_problem, context);
+    bfs_enactor->enact_pushpull(bfs_problem, alpha, context);
     cout << "elapsed time: " << timer.end() << "s." << std::endl;
 
     std::vector<int> validation_labels = std::vector<int>(d_graph->num_nodes, -1);

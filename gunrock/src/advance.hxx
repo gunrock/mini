@@ -81,7 +81,7 @@ void sparse_to_dense_kernel(std::shared_ptr<Problem> problem,
 }
 
 template<typename Problem, typename Functor>
-void gen_unvisited_kernel(std::shared_ptr<Problem> problem,
+int gen_unvisited_kernel(std::shared_ptr<Problem> problem,
                        std::shared_ptr<frontier_t<int> > &indices,
                        std::shared_ptr<frontier_t<int> > &unvisited,
                        int iteration,
@@ -95,18 +95,18 @@ void gen_unvisited_kernel(std::shared_ptr<Problem> problem,
                 return Functor::cond_gen_unvisited(item, data, iteration);
                 });
     unvisited->resize(stream_count);
-    std::cout << stream_count << std::endl;
     int *unvisited_data = unvisited.get()->data()->data();
     compact.downsweep([=]__device__(int dest_idx, int source_idx) {
             unvisited_data[dest_idx] = input_data[source_idx];
         });
+    return stream_count;
 }
 
-template<typename Problem, typename Functor, bool has_output>
+template<typename Problem, typename Functor>
 int advance_backward_kernel(std::shared_ptr<Problem> problem,
               std::shared_ptr<frontier_t<int> > &unvisited,
               std::shared_ptr<frontier_t<int> > &bitmap,
-              std::shared_ptr<frontier_t<int> > &output,
+              std::shared_ptr<frontier_t<int> > &bitmap_out,
               int iteration,
               standard_context_t &context)
 {
@@ -129,23 +129,23 @@ int advance_backward_kernel(std::shared_ptr<Problem> problem,
     int front = from_mem(count)[0];
     if(!front) return 0;
 
-    if (has_output) output->resize(unvisited.get()->size());
     int *row_indices = problem.get()->gslice->d_row_indices.data();
+    int num_nodes = problem.get()->gslice->num_nodes;
+    int num_edges = problem.get()->gslice->num_edges;
     // update the bitmaps of visited nodes, compact the unvisited nodes
     typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
-    int *output_data = has_output ? output.get()->data()->data() : nullptr;
     int *bitmap_data = bitmap.get()->data()->data();
+    int *bitmap_out_data = bitmap_out.get()->data()->data();
     auto neighbors_expand = [=]__device__(int idx, int seg, int rank) {
         int v = unvisited_data[seg];
-        if (has_output) output_data[seg] = v;
         int start_idx = col_offsets[v];
         int neighbor = row_indices[start_idx+rank];
         // if the neighbor item in bitmap is set,
         // set unvisited_data[seg] in bitmap too.
         // if early_exit, mark unvisited_data[seg] as -1
         if (bitmap_data[neighbor] && Functor::apply_advance(neighbor, v, start_idx+rank, rank, idx, data, iteration)) {
-            bitmap_data[v] = 1;
-            if (has_output) output_data[seg] = -1;
+            bitmap_out_data[v] = 1;
+            unvisited_data[seg] = -1;
         }
         if (!Functor::cond_advance(neighbor, v, start_idx+rank, rank, idx, data, iteration))
             return;
