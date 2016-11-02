@@ -20,6 +20,5 @@ namespace util {
         } while (expected != old);
         return __int_as_float(old);
     }
-
 }
 }

@@ -78,9 +78,11 @@ void graph_to_device(std::shared_ptr<graph_device_t> d_graph, std::shared_ptr<gr
   d_graph->d_scanned_row_offsets = mem_t<int>(graph->num_nodes, context);
   // TODO: should really allocate when strategy is dynamic grouping.
   d_graph->d_row_lengths = mem_t<int>(graph->num_nodes, context);
+  d_graph->d_row_lengths = fill(0, graph->num_nodes, context);
   d_graph->d_sources = mem_t<int>(graph->num_edges, context);
   d_graph->d_ranks = mem_t<int>(graph->num_edges, context);
   d_graph->d_scanned_coarse_fine_row_offsets = mem_t<int2>(graph->num_nodes, context);
+  d_graph->d_scanned_coarse_fine_row_offsets = fill(make_int2(0,0), graph->num_nodes, context);
 }
 
 void display_csr(std::shared_ptr<csr_t> csr) {

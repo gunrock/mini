@@ -45,12 +45,16 @@ struct bfs_enactor_t : enactor_t {
         int selector = 0;
 
         for (int iteration = 0; ; ++iteration) {
-            frontier_length = advance_forward_kernel<bfs_problem_t, bfs_functor_t, false, true>
+            frontier_length = advance_twc_kernel<bfs_problem_t, bfs_functor_t, false, true>
                 (bfs_problem,
                  buffers[selector],
                  buffers[selector^1],
+                 32,
+                 256,
                  iteration,
                  context);
+            //std::cout << "got here.\n" << std::endl;
+            //display_device_data(buffers[selector^1].get()->data()->data(), buffers[selector^1]->size());
             selector ^= 1;
             if (!frontier_length) break;
             frontier_length = filter_kernel<bfs_problem_t, bfs_functor_t>
