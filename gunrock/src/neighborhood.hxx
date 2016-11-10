@@ -37,24 +37,14 @@ int neighborhood_kernel(std::shared_ptr<Problem> problem,
     if(!non_zeros) return 0;
 
 
-    int *sources = problem.get()->gslice->d_sources.data();
-    int *ranks = problem.get()->gslice->d_ranks.data();
-    transform_lbs(
-                        [=]MGPU_DEVICE(int index, int seg, int rank, mgpu::tuple<int> desc) {
-                        sources[index] = mgpu::get<0>(desc);
-                        ranks[index] = rank;
-                        }, 
-                        non_zeros, scanned_row_offsets, (int)input.get()->size(), mgpu::make_tuple(input_data), context);
-
     int *col_indices = problem.get()->gslice->d_col_indices.data();
     if (has_output) output->resize(non_zeros);
     int *output_data = (has_output) ? output.get()->data()->data() : nullptr;
     typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
     
-    auto neighborhood_reduce = [=]__device__(int idx) {
-        int v = ldg(sources+idx);
+    auto neighborhood_reduce = [=]__device__(int idx,int seg, int rank) {
+        int v = ldg(input_data+seg);
         int start = ldg(row_offsets+v);
-        int rank = ldg(ranks+idx);
         int neighbor = ldg(col_indices+start+rank);
         bool cond = Functor::cond_advance(v, neighbor, start+rank, rank, idx, data, iteration);
         bool apply = Functor::apply_advance(v, neighbor, start+rank, rank, idx, data, iteration);
@@ -62,7 +52,7 @@ int neighborhood_kernel(std::shared_ptr<Problem> problem,
         return Functor::get_value_to_reduce(neighbor, data, iteration);
     };
 
-    transform_segreduce(neighborhood_reduce, non_zeros, scanned_row_offsets, (int)input.get()->size(), reduced, reduce_op(), identity, context);
+    lbs_segreduce(neighborhood_reduce, non_zeros, scanned_row_offsets, (int)input.get()->size(), reduced, reduce_op(), identity, context);
 
     // scatter reduced value to problem
     // skip for now, since reduced array has been sent in

@@ -161,6 +161,7 @@ struct AdvanceTWCFunctor {
     static __device__ __forceinline__ void expand_cta(
             int idx,
             int input_size,
+            int num_edges,
             typename Problem::data_slice_t *data,
             const int *input_data,
             int *output_data,
@@ -170,35 +171,41 @@ struct AdvanceTWCFunctor {
             const int2 *row_ranks,
             int cta_gather_threshold,
             int (&warp_comm)[mgpu::warp_size][4],
-            int cta_comm,
+            int (&cta_comm)[1],
             int nt,
             int iteration,
             bool idempotence) {
+        if (idx >= num_edges) return;
+        cta_comm[0] = -1;
         while (true) {
             if (idx < input_size && row_lengths[idx] >= cta_gather_threshold) {
-                cta_comm = threadIdx.x;
-            } else {
-                cta_comm = nt;
+                cta_comm[0] = threadIdx.x;
             }
             __syncthreads();
+            //printf("blockIdx:%d threadIdx: %d idx:%d, row_len:%d, cta_comm:%d\n",blockIdx.x, threadIdx.x, idx, row_lengths[idx], cta_comm);
 
             // check
-            int owner = cta_comm;
+            int owner = cta_comm[0];
             if (owner == nt) {
                 break;
             }
             __syncthreads();
+            //printf("blockIdx:%d threadIdx: %d idx:%d, row_len:%d, owner:%d\n",blockIdx.x, threadIdx.x, idx, row_lengths[idx], owner);
+            break;
 
-            if (owner == threadIdx.x) { // got control of the CTA, command it // start warp_comm[0][0] = row_offsets[idx];
+            if (owner == threadIdx.x) { // got control of the CTA, command it
+                //printf("blockIdx:%d threadIdx: %d idx:%d, row_len:%d\n",blockIdx.x, threadIdx.x, idx, row_lengths[idx]);
+                // start
+                warp_comm[0][0] = row_offsets[input_data[idx]];
                 // queue rank
                 warp_comm[0][1] = row_ranks[idx].x;
                 // oob
-                warp_comm[0][2] = row_offsets[idx] + row_lengths[idx];
+                warp_comm[0][2] = row_offsets[input_data[idx]] + row_lengths[idx];
                 // pred
                 warp_comm[0][3] = input_data[idx];
 
                 row_lengths[idx] = 0;
-                cta_comm = nt;
+                cta_comm[0] = nt;
             }
             __syncthreads();
 
@@ -220,6 +227,7 @@ struct AdvanceTWCFunctor {
                 if (output_data != nullptr) output_data[coop_rank] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
                 coop_offset += nt;
                 coop_rank += nt;
+                //printf("pred:%d, neighbor:%d\n", pred, neighbor_id);
             }
             if (coop_offset + idx < coop_oob) {
                 // Gather
@@ -228,6 +236,7 @@ struct AdvanceTWCFunctor {
                 apply =  Functor::apply_advance(pred, neighbor_id, coop_offset+threadIdx.x, threadIdx.x, coop_rank, data, iteration);
                 // Scatter neighbor
                 if (output_data != nullptr) output_data[coop_rank] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
+                //printf("pred:%d, neighbor:%d\n", pred, neighbor_id);
             }
         }
     }
@@ -235,6 +244,7 @@ struct AdvanceTWCFunctor {
     static __device__ __forceinline__ void expand_warp(
             int idx,
             int input_size,
+            int num_edges,
             typename Problem::data_slice_t *data,
             const int *input_data,
             int *output_data,
@@ -247,22 +257,20 @@ struct AdvanceTWCFunctor {
             int nt,
             int iteration,
             int idempotence) {
-        int warp_id = threadIdx.x & (mgpu::warp_size-1);
+        int warp_id = threadIdx.x / mgpu::warp_size;
         int lane_id = util::LaneId();
-
-        while (idx >= input_size || __any(row_lengths[idx] >= warp_gather_threshold)) {
+        //cannot have more than num_edges edge to expand
+        if (idx >= num_edges) return;
+        while (__any(row_lengths[idx] >= warp_gather_threshold)) {
             if (idx < input_size && row_lengths[idx] >= warp_gather_threshold) {
                 warp_comm[warp_id][0] = lane_id;
-            } else {
-                warp_comm[warp_id][0] = nt;
             }
             if (lane_id == warp_comm[warp_id][0]) {
                 // got control of the warp
-                warp_comm[warp_id][0] = row_offsets[idx];
+                warp_comm[warp_id][0] = row_offsets[input_data[idx]];
                 warp_comm[warp_id][1] = row_ranks[idx].x;
-                warp_comm[warp_id][2] = row_offsets[idx] + row_lengths[idx];
+                warp_comm[warp_id][2] = row_offsets[input_data[idx]] + row_lengths[idx];
                 warp_comm[warp_id][3] = input_data[idx];
-
                 // unset row length
                 row_lengths[idx] = 0;
             }
@@ -298,6 +306,7 @@ struct AdvanceTWCFunctor {
     static __device__ __forceinline__ void expand_scan(
             int idx,
             int input_size,
+            int num_edges,
             int *input_data,
             int *row_lengths,
             const int *row_offsets,
@@ -308,6 +317,7 @@ struct AdvanceTWCFunctor {
             int progress) {
         // reuse row_ranks[idx].x as row_progress
         // at this point, it must be 0.
+        if (idx >= num_edges) return;
         int scratch_offset = row_ranks[idx].y + row_ranks[idx].x - progress;
         while (idx < input_size && (row_ranks[idx].x < row_lengths[idx]) &&
                 (scratch_offset < smem_gather_elements)) {
@@ -348,31 +358,34 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
         int end = row_offsets[v+1];
         int len = end - begin;
         row_lengths[idx] = len;
-        count.x = (len < warp_gather_threshold) ? 0 : len;
-        count.y = (len < warp_gather_threshold) ? len : 0; 
+        count.x = (len <= warp_gather_threshold) ? 0 : len;
+        count.y = (len <= warp_gather_threshold) ? len : 0; 
         return count;
     };
     transform_scan<int2>(segment_sizes, (int)input.get()->size(), coarse_fine_ranks, plus_t<int2>(), counts.data(), context);
 
     int coarse_count = from_mem(counts)[0].x;
     int fine_count = from_mem(counts)[0].y;
-    //std::cout << coarse_count << " " << fine_count << std::endl;
+    std::cout << input_size << " " << coarse_count << " " << fine_count << std::endl;
 
     // start cta/warp/thread expand
     if (has_output) output->resize(coarse_count+fine_count);
     int *output_data = has_output ? output.get()->data()->data() : nullptr;
     typename Problem::data_slice_t *data = problem.get()->d_data_slice.data();
+    int num_edges = problem.get()->gslice->num_edges;
     auto f = [=]__device__(int idx) {
-        //printf("th:%d\n",threadIdx.x);
         __shared__ int warp_comm[mgpu::warp_size][4];
-        __shared__ int cta_comm;
+        __shared__ int cta_comm[1];
         __shared__ int gather_offsets[mgpu::warp_size<<2]; //128
         __shared__ int gather_preds[mgpu::warp_size<<2]; //128
         int smem_gather_elements = mgpu::warp_size<<2;
+
+        //printf("nt:%d, blockDim:%d\n", launch_t::sm_ptx::nt, blockDim.x);
        
         if (coarse_count > 0) {
         AdvanceTWCFunctor<Problem, Functor>::expand_cta(idx,
                 input_size,
+                num_edges,
                 data,
                 input_data,
                 output_data,
@@ -380,7 +393,7 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
                 row_offsets,
                 col_indices,
                 coarse_fine_ranks,
-                warp_gather_threshold,
+                cta_gather_threshold,
                 warp_comm,
                 cta_comm,
                 launch_t::sm_ptx::nt,
@@ -389,6 +402,7 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
 
         AdvanceTWCFunctor<Problem, Functor>::expand_warp(idx,
                 input_size,
+                num_edges,
                 data,
                 input_data,
                 output_data,
@@ -407,6 +421,7 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
         while (progress < fine_count) {
             AdvanceTWCFunctor<Problem, Functor>::expand_scan(idx,
                 input_size,
+                num_edges,
                 input_data,
                 row_lengths,
                 row_offsets,
@@ -416,7 +431,6 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
                 smem_gather_elements,
                 progress);
             int scratch_remainder = (smem_gather_elements < fine_count - progress) ? smem_gather_elements : fine_count - progress;
-            //printf("scratch_reminder:%d\n", scratch_remainder);
             __syncthreads();
             bool apply;
             bool cond;
@@ -428,8 +442,6 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
                 int pred = gather_preds[scratch_offset]; 
                 cond = Functor::cond_advance(pred, neighbor_id, gather_offsets[scratch_offset], gather_offsets[scratch_offset] - row_offsets[idx], coarse_count + progress + scratch_offset, data, iteration);
                 apply = Functor::apply_advance(pred, neighbor_id, gather_offsets[scratch_offset], gather_offsets[scratch_offset] - row_offsets[idx], coarse_count + progress + scratch_offset, data, iteration);
-                //printf("src:%d, dst:%d\n", pred, neighbor_id);
-                //printf("output_offset:%d\n", coarse_count + progress + scratch_offset);
                 // Scatter neighbor 
                 if (has_output) output_data[coarse_count + progress + scratch_offset] = idempotence ? neighbor_id : ((cond && apply) ? neighbor_id : -1);
             }
@@ -437,7 +449,7 @@ int advance_twc_kernel(std::shared_ptr<Problem> problem,
             __syncthreads();
         }
     };
-    int num_threads = max(input_size, cta_gather_threshold);
+    int num_threads = max(num_edges, cta_gather_threshold);
     //int num_threads = (int)input.get()->size();
     transform<launch_t>(f, num_threads, context);
 
