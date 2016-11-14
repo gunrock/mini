@@ -79,7 +79,7 @@ struct bfs_enactor_t : enactor_t {
         int iteration;
 
         for (iteration = 0; ; ++iteration) {
-            std::cout << "push " << iteration << std::endl;
+            //std::cout << "push " << iteration << std::endl;
             frontier_length = advance_forward_kernel<bfs_problem_t, bfs_functor_t, false, true>
                 (bfs_problem,
                  buffers[selector],
@@ -100,6 +100,7 @@ struct bfs_enactor_t : enactor_t {
             if (!frontier_length) break;
             selector ^= 1;
         }
+        std::cout << "pushed iterations: " << iteration << std::endl;
 
         if (frontier_length) {
             // break due to push-pull switch, enter pull-based traversal
@@ -116,7 +117,7 @@ struct bfs_enactor_t : enactor_t {
             sparse_to_dense_kernel<bfs_problem_t, bfs_functor_t>(bfs_problem, buffers[selector^1], buffers[selector], iteration, context);
 
             for (;;++iteration) {
-                std::cout << "pull " << iteration << std::endl;
+                //std::cout << "pull " << iteration << std::endl;
                 buffers[selector^1]->load(bitmap_array);
                 advance_backward_kernel<bfs_problem_t, bfs_functor_t>(
                         bfs_problem,
@@ -138,6 +139,8 @@ struct bfs_enactor_t : enactor_t {
                 selector ^= 1;
 
             }
+
+            std::cout << "total iterations: " << iteration << std::endl;
 
         } else {
             // break due to finished BFS. No pull-based traversal

@@ -1,1 +1,1 @@
-bin/test_sssp__x86_64 --src=0 --file=test.mtx
+bin/test_sssp__x86_64 --src=0 --file=/data/Compare/MapGraph/Algorithms/results/$1-mapgraph.mtx

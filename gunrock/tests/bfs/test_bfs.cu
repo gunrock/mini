@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
 
     test_timer_t timer;
     timer.start();
-    bfs_enactor->enact_baseline(bfs_problem, context);
-    //bfs_enactor->enact_pushpull(bfs_problem, alpha, context);
+    //bfs_enactor->enact_baseline(bfs_problem, context);
+    bfs_enactor->enact_pushpull(bfs_problem, alpha, context);
     cout << "elapsed time: " << timer.end() << "s." << std::endl;
 
     std::vector<int> validation_labels = std::vector<int>(d_graph->num_nodes, -1);

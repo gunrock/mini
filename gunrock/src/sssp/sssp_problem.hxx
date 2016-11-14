@@ -8,6 +8,7 @@ namespace sssp {
 struct sssp_problem_t : problem_t {
   mem_t<float> d_labels;
   mem_t<int> d_preds;
+  mem_t<int> d_visited;
   std::vector<float> labels;
   std::vector<int> preds;
   int src;
@@ -16,11 +17,13 @@ struct sssp_problem_t : problem_t {
       float *d_labels;
       int *d_preds;
       float *d_weights;
+      int *d_visited;
 
-      void init(mem_t<float> &_labels, mem_t<int> &_preds, mem_t<float> &_weights) {
+      void init(mem_t<float> &_labels, mem_t<int> &_preds, mem_t<float> &_weights, mem_t<int> &_visited) {
         d_labels = _labels.data();
         d_preds = _preds.data();
         d_weights = _weights.data();
+        d_visited = _visited.data();
       }
   };
 
@@ -42,7 +45,8 @@ struct sssp_problem_t : problem_t {
           preds[src] = -1;
           d_labels = to_mem(labels, context);
           d_preds = to_mem(preds, context);
-          data_slice[0].init(d_labels, d_preds, gslice->d_col_values);
+          d_visited = fill(0, rhs->num_nodes, context);
+          data_slice[0].init(d_labels, d_preds, gslice->d_col_values, d_visited);
           d_data_slice = to_mem(data_slice, context);
       }
 

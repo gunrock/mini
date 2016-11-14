@@ -41,8 +41,10 @@ struct sssp_enactor_t : enactor_t {
 
         int frontier_length = 1;
         int selector = 0;
+        int num_nodes = sssp_problem.get()->gslice->num_nodes;
+        int iteration;
 
-        for (int iteration = 0; ; ++iteration) {
+        for (iteration = 0; iteration < num_nodes; ++iteration) {
             frontier_length = advance_forward_kernel<sssp_problem_t, sssp_functor_t, false, true>
                 (sssp_problem,
                  buffers[selector],
@@ -59,6 +61,8 @@ struct sssp_enactor_t : enactor_t {
             if (!frontier_length) break;
             selector ^= 1;
         }
+        if (iteration == num_nodes)
+            std::cout << "negative-weight cycle detected." << std::endl;
     }
    
 };
