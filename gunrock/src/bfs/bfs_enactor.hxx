@@ -38,37 +38,6 @@ struct bfs_enactor_t : enactor_t {
     }
     
     //Enact
-    void enact_baseline(std::shared_ptr<bfs_problem_t> bfs_problem, standard_context_t &context) {
-        init_frontier(bfs_problem);
-
-        int frontier_length = 1;
-        int selector = 0;
-
-        for (int iteration = 0; ; ++iteration) {
-            frontier_length = advance_twc_kernel<bfs_problem_t, bfs_functor_t, false, true>
-                (bfs_problem,
-                 buffers[selector],
-                 buffers[selector^1],
-                 32,
-                 256,
-                 iteration,
-                 context);
-            //std::cout << "got here.\n" << std::endl;
-            //display_device_data(buffers[selector^1].get()->data()->data(), buffers[selector^1]->size());
-            selector ^= 1;
-            if (!frontier_length) break;
-            frontier_length = filter_kernel<bfs_problem_t, bfs_functor_t>
-                (bfs_problem,
-                 buffers[selector],
-                 buffers[selector^1],
-                 iteration,
-                 context);
-            if (!frontier_length) break;
-            selector ^= 1;
-        }
-
-    }
-
     void enact_pushpull(std::shared_ptr<bfs_problem_t> bfs_problem, float threshold, standard_context_t &context) {
         init_frontier(bfs_problem);
 

@@ -14,13 +14,13 @@ struct enactor_t {
     std::shared_ptr<frontier_t<int> > filtered_indices;
     std::vector< std::shared_ptr<frontier_t<int> > > unvisited;
 
-    enactor_t(standard_context_t &context, int num_nodes, int num_edges) {
-        init(context, num_nodes, num_edges);
+    enactor_t(standard_context_t &context, int num_nodes, int num_edges, float queue_sizing=1.0f) {
+        init(context, num_nodes, num_edges, queue_sizing);
       }
 
-    void init(standard_context_t &context, int num_nodes, int num_edges) {
-        std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, num_edges));
-        std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, num_edges));
+    void init(standard_context_t &context, int num_nodes, int num_edges, float queue_sizing) {
+        std::shared_ptr<frontier_t<int> > input_frontier(std::make_shared<frontier_t<int> >(context, (int)(num_edges*queue_sizing)));
+        std::shared_ptr<frontier_t<int> > output_frontier(std::make_shared<frontier_t<int> >(context, (int)(num_edges*queue_sizing)));
         buffers.push_back(input_frontier);
         buffers.push_back(output_frontier);
 
