@@ -36,7 +36,7 @@ struct kcore_enactor_t : enactor_t {
         generate(node_idx.begin(), node_idx.end(), [&](){ return count++; });
         buffers[0]->load(node_idx);
     }
-    
+
     //Enact
     void enact(std::shared_ptr<kcore_problem_t> kcore_problem, standard_context_t &context) {
         int num_nodes = kcore_problem.get()->gslice->num_nodes;
@@ -77,6 +77,7 @@ struct kcore_enactor_t : enactor_t {
           }
           if (frontier_length == 0) {
             std::cout << "largest k-core: " << k - 1 << std::endl;
+            kcore_problem.largest_k_core = k - 1;
             break;
           }
         }
