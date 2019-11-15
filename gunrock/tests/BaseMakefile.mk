@@ -16,7 +16,7 @@ CUDA_INC= "/usr/local/cuda/include"
 
 INC=-I.. -I../../src -I$(MGPU_INC) -I$(CUDA_INC)
 
-OPTIONS=-std=c++11 -ccbin=/usr/bin/g++ -Xcompiler="-Wundef" -O2 -g -Xcompiler="-Werror" -lineinfo  --expt-extended-lambda -use_fast_math -Xptxas="-v"
+OPTIONS=-std=c++11 -ccbin=/usr/bin/g++ -Xcompiler="-Wundef" -O2 -g -lineinfo  --expt-extended-lambda -use_fast_math -Xptxas="-v"
 
 DEPS= $(wildcard ../../src/*.hxx) \
 	  $(wildcard ../../src/*/*.hxx)

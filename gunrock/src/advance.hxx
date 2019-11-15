@@ -54,9 +54,10 @@ int advance_forward_kernel(std::shared_ptr<Problem> problem,
         int v = input_data[seg];
         int start_idx = row_offsets[v];
         int neighbor = col_indices[start_idx+rank];
-        bool cond = Functor::cond_advance(v, neighbor, start_idx+rank, rank, idx, data, iteration); 
+        bool cond = Functor::cond_advance(v, neighbor, start_idx+rank, rank, idx, data, iteration);
+        bool apply_return = Functor::apply_advance(v, neighbor, start_idx+rank, rank, idx, data, iteration);
         if (has_output)
-            output_data[idx] = idempotence ? neighbor : ((cond && Functor::apply_advance(v, neighbor, start_idx+rank, rank, idx, data, iteration)) ? neighbor : -1);
+            output_data[idx] = idempotence ? neighbor : ((cond && apply_return) ? neighbor : -1);
     };
     transform_lbs(neighbors_expand, front, scanned_row_offsets, (int)input.get()->size(), context);
 
