@@ -73,10 +73,10 @@ void graph_to_device(std::shared_ptr<graph_device_t> d_graph, std::shared_ptr<gr
       d_graph->d_row_values = to_mem(graph->csc->edge_weights, context);
       d_graph->d_csc_srcs = to_mem(graph->csc->sources, context);
   } else {
-      d_graph->d_col_offsets.init(graph->num_nodes, context, d_graph->d_row_offsets.data());
-      d_graph->d_row_values.init(graph->num_edges, context, d_graph->d_col_values.data());
-      d_graph->d_row_indices.init(graph->num_edges, context, d_graph->d_col_indices.data());
-      d_graph->d_csc_srcs.init(graph->num_edges, context, d_graph->d_csr_srcs.data());
+      d_graph->d_col_offsets = to_mem(graph->csr->offsets, context);
+      d_graph->d_row_values = to_mem(graph->csr->edge_weights, context);
+      d_graph->d_row_indices = to_mem(graph->csr->indices, context);
+      d_graph->d_csc_srcs = to_mem(graph->csr->sources, context);
   }
 
   d_graph->d_scanned_row_offsets = mem_t<int>(graph->num_nodes, context);
@@ -97,7 +97,7 @@ std::shared_ptr<graph_t> load_graph(const char *_name, bool _undir = false,
                                     bool _random_edge_value = false) {
   FILE *f = fopen(_name, "r");
   if (!f)
-    return false;
+    return nullptr;
 
   char line[100];
   while (fgets(line, 100, f) && '%' == line[0])
