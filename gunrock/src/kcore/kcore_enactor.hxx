@@ -77,7 +77,7 @@ struct kcore_enactor_t : enactor_t {
           }
           if (frontier_length == 0) {
             std::cout << "largest k-core: " << k - 1 << std::endl;
-            kcore_problem.largest_k_core = k - 1;
+            kcore_problem.get()->largest_k_core = k - 1;
             break;
           }
         }

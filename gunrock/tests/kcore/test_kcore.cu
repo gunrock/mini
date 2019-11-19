@@ -34,7 +34,11 @@ int main(int argc, char** argv) {
 
     std::vector<int> validation_num_cores = std::vector<int>(d_graph->num_nodes, 0);
     kcore_problem->extract();
-    kcore_problem->cpu(validation_num_cores, graph->csr->offsets, graph->csr->indices);
+    int ref_largest_k_core = kcore_problem->cpu(validation_num_cores, graph->csr->offsets, graph->csr->indices);
+
+    if (ref_largest_k_core != kcore_problem.get()->largest_k_core) {
+        cout << "Validation Error for largest k-core. ref: " << ref_largest_k_core << " gpu: " << kcore_problem.get()->largest_k_core << endl;
+    }
     //display_device_data(kcore_problem.get()->d_num_cores.data(), kcore_problem.get()->gslice->num_nodes);
 
     if (!validate(kcore_problem.get()->num_cores, validation_num_cores))

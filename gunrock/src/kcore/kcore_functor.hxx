@@ -8,8 +8,9 @@ namespace gunrock {
 namespace kcore {
 
     struct deg_less_than_k_functor_t {
-        static __device__ __forceinline__ bool cond_filter(int idx, kcore_problem_t::data_slice_t *data, int k) { 
-          if (data->d_degrees[idx] < k) {
+        static __device__ __forceinline__ bool cond_filter(int idx, kcore_problem_t::data_slice_t *data, int k) {
+          auto degree = data->d_degrees[idx];
+          if (degree < k && degree > 0) {
             data->d_num_cores[idx] = k - 1;
             data->d_degrees[idx] = 0;
             return true;
@@ -25,11 +26,11 @@ namespace kcore {
     };
 
     struct update_deg_functor_t {
-        static __device__ __forceinline__ bool cond_advance(int idx, kcore_problem_t::data_slice_t *data, int k) {
+        static __device__ __forceinline__ bool cond_advance(int src, int dst, int edge_id, int rank, int output_idx, kcore_problem_t::data_slice_t *data, int k) {
           return true;
         }
 
-        static __device__ __forceinline__ bool apply_advance(int src, int dst, int edge_id, int rank, int output_idx, coloring_problem_t::data_slice_t *data, int iteration) {
+        static __device__ __forceinline__ bool apply_advance(int src, int dst, int edge_id, int rank, int output_idx, kcore_problem_t::data_slice_t *data, int k) {
             atomicAdd(data->d_degrees + dst, -1);
             return (data->d_degrees[dst] > 0);
         }
