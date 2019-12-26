@@ -11,7 +11,7 @@ GEN_SM35 = -gencode=arch=compute_35,code=\"sm_35,compute_35\"
 GEN_SM30 = -gencode=arch=compute_30,code=\"sm_30,compute_30\"
 SM_TARGETS = $(GEN_SM70)
 
-MGPU_INC= "../../../external/moderngpu/src"
+MGPU_INC= "../../../externals/moderngpu/src"
 CUDA_INC= "/usr/local/cuda/include"
 
 INC=-I.. -I../../src -I$(MGPU_INC) -I$(CUDA_INC)
