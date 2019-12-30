@@ -205,7 +205,7 @@ bool validate(std::vector<float> &gpu_vals, std::vector<float> &cpu_vals) {
     if (gpu_vals.size() != cpu_vals.size())
         return false;
     for (int i = 0; i < gpu_vals.size(); ++i) {
-        if (fabs(gpu_vals[i] - cpu_vals[i]) < 0.01f) {
+        if (fabs(gpu_vals[i] - cpu_vals[i]) >= 0.01f) {
             return false;
         }
     }
