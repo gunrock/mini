@@ -20,8 +20,8 @@ struct problem_t {
   }
 
               
-  void GetDegrees(mem_t<int> &_degrees, standard_context_t &context) {
-      int *degrees = _degrees.data();
+  void GetDegrees(mem_t<float> &_degrees, standard_context_t &context) {
+      float *degrees = _degrees.data();
       int *offsets = gslice->d_row_offsets.data();
       auto f = [=]__device__(int idx) {
           degrees[idx] = offsets[idx+1]-offsets[idx];

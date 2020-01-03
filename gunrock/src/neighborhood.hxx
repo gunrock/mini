@@ -51,7 +51,8 @@ int neighborhood_kernel(std::shared_ptr<Problem> problem,
         bool cond = Functor::cond_advance(v, neighbor, start+rank, rank, idx, data, iteration);
         bool apply = Functor::apply_advance(v, neighbor, start+rank, rank, idx, data, iteration);
         if (has_output) output_data[idx] = (cond && apply) ? neighbor : -1;
-        return Functor::get_value_to_reduce(neighbor, data, iteration);
+        auto val = Functor::get_value_to_reduce(neighbor, data, iteration);
+        return val;
     };
 
     lbs_segreduce(neighborhood_reduce, non_zeros, scanned_offsets, (int)input.get()->size(), reduced, reduce_op(), identity, context);

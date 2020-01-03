@@ -59,7 +59,7 @@ struct pr_enactor_t : enactor_t {
                  iteration,
                  context);
 
-            std::cout << "neighborhood reduction.\n";
+            //std::cout << "neighborhood reduction.\n"; 
             //display_device_data(pr_problem.get()->d_current_ranks.data(), pr_problem.get()->gslice->num_nodes);
             //display_device_data(pr_problem.get()->d_reduced_ranks.data(), pr_problem.get()->gslice->num_nodes);
 
@@ -74,11 +74,8 @@ struct pr_enactor_t : enactor_t {
 
             ++iteration;
             selector^=1;
-            pr_problem->d_current_ranks.swap(pr_problem->d_reduced_ranks);
-            reduced_ranks = pr_problem->d_reduced_ranks.data();
-            current_ranks = pr_problem->d_current_ranks.data();
-            //display_device_data(pr_problem.get()->d_colors.data(), pr_problem.get()->gslice->num_nodes);
-        } 
+        }
+        display_device_data(pr_problem.get()->d_current_ranks.data(), 10);
     }
 };
 
