@@ -15,13 +15,11 @@ mini-gunrock's core components are graph traversal operators that based on moder
 
 `mini/gunrock/tests/bfs/test_bfs.cu` shows the power of mini-gunrock. After loading graph and setting up frontier and problem, the actual algorithm part only contains 8 lines of code. It is a truly data-centric framework and basically achieved our original idea of "the flow of frontier between multiple operators".
 
-# TODOS (with no perticular orders)
+# TODOS (with no particular orders)
 - Add a pure compute operator with no filter (maps to Gunrock's bypass_filter).
 - Add launch_box and restrict settings to further improve the performance.
 - Add the batch-intersection operator.
 - Add more graph primitives and their CPU validation code.
 
-# To Gunrock Team
-As I'm still actively working on this project, you will see more changes in the coming up months, please try it out, provide feedbacks, and contribute to the code if you want. Hope this project can serve as both a quick experiment playground for new ideas and also a better way to get familiar with our data-centric framework.
 
 YZH
